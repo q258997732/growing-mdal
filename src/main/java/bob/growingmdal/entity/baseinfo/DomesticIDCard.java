@@ -1,9 +1,12 @@
 package bob.growingmdal.entity.baseinfo;
 
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.configurationprocessor.json.JSONObject;
 
+@Slf4j
 @Data
-public class DomesticIDCard {
+public class DomesticIDCard implements IDCard {
 
     private String name;             // 姓名
     private String sex;              // 性别
@@ -20,5 +23,40 @@ public class DomesticIDCard {
     }
 
     public DomesticIDCard(String name, String sex, String nation, String birthDay, String address, String idNumber, String department, String expireStartDay, String expireEndDay, String reserved) {
+    }
+
+    public String toString(){
+        return "{" +
+                "name='" + name + '\'' +
+                ", sex='" + sex + '\'' +
+                ", nation='" + nation + '\'' +
+                ", birthDay='" + birthDay + '\'' +
+                ", address='" + address + '\'' +
+                ", idNumber='" + idNumber + '\'' +
+                ", department='" + department + '\'' +
+                ", expireStartDay='" + expireStartDay + '\'' +
+                ", expireEndDay='" + expireEndDay + '\'' +
+                ", reserved='" + reserved + '\'' +
+                '}';
+    }
+
+    public JSONObject toJson() {
+        JSONObject json = new JSONObject();
+        try {
+            json.put("name", name);
+            json.put("sex", sex);
+            json.put("nation", nation);
+            json.put("birthDay", birthDay);
+            json.put("address", address);
+            json.put("idNumber", idNumber);
+            json.put("department", department);
+            json.put("expireStartDay", expireStartDay);
+            json.put("expireEndDay", expireEndDay);
+            json.put("reserved", reserved);
+        }catch (Exception e) {
+            log.error("DomesticIDCard toJson error: {}", e.getMessage());
+            return null;
+        }
+        return json;
     }
 }
