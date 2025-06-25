@@ -19,9 +19,6 @@ import java.nio.file.Paths;
 @SpringBootTest
 class GrowingMdalApplicationTests {
 
-    @Autowired
-    DekaReader dekaReader;
-
     @Test
     void contextLoads() throws IOException {
 
@@ -46,8 +43,7 @@ class GrowingMdalApplicationTests {
         java.util.Arrays.fill(SnrLen, (byte) 0);
 
         int status = -1;
-
-
+        DekaReader dekaReader = DekaReader.load();
 
         // 获取与设置库信息
         dekaReader.LibMain(0,version);
