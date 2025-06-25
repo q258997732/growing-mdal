@@ -153,6 +153,20 @@ public interface DekaReader {
 
     short dc_GetBankAccountNumber(int handle, int type, byte[] flag);
 
+    short dc_RfGetCardType(int handle);
+
+    short dc_SelfServiceDeviceSensorStatus(int handle, byte[] value);
+
+    /**
+     * @brief  检测多卡状态。
+     * @par    说明：
+     * 判断是否为多张卡，是否为Type A或Type B卡。
+     * @param[in] icdev 设备标识符。
+     * @param[out] type 卡类型，0x0A表示Type A卡，0x0B表示Type B卡。
+     * @return <0表示失败，==0表示成功，==1表示无卡，==2表示存在多张卡。
+     */
+    short dc_MulticardStatus(int handle, byte[] value);
+
     /**
      * @return <0表示失败，==0表示成功。
      * @brief 读身份证。

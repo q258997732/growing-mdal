@@ -16,23 +16,13 @@ public class DekaService {
     int status = -1;
     int type = 0;
 
-    // 初始化变量
-    int[] text_len = new int[1];    // 身份证信息长度
-    byte[] text = new byte[1024];   // 身份证信息
-    int[] photo_len = new int[1];   // 照片信息长度
-    byte[] photo = new byte[1024];  // 照片信息
-    int[] fingerprint_len = new int[1]; // 指纹信息长度
-    byte[] fingerprint = new byte[1024]; // 指纹信息
-    int[] extra_len = new int[1];
-    byte[] extra = new byte[1024];
-
-
     public int initDevice() {
         return dekaReader.dc_init(DekaReader.PORT_USB, DekaReader.BAUD);
     }
 
     public boolean exitDevice(int handle) {
         status = dekaReader.dc_exit(handle);
+        handle = -1;
         if (!DekaReader.isSuccess(status)) {
             log.error("exit device failed . status = {}", status);
             return false;
@@ -44,7 +34,21 @@ public class DekaService {
 
     }
 
+    /**
+     * 获取身份证信息
+     * @return 身份证实体类
+     */
     public Object getIDCardInfo() {
+
+        // 初始化变量
+        int[] text_len = new int[1];    // 身份证信息长度
+        byte[] text = new byte[1024];   // 身份证信息
+        int[] photo_len = new int[1];   // 照片信息长度
+        byte[] photo = new byte[1024];  // 照片信息
+        int[] fingerprint_len = new int[1]; // 指纹信息长度
+        byte[] fingerprint = new byte[1024]; // 指纹信息
+        int[] extra_len = new int[1];
+        byte[] extra = new byte[1024];
 
         handle = initDevice();
         if (handle < 0) {
@@ -95,7 +99,7 @@ public class DekaService {
                     DekaReader.gbk_bytes_to_string(reserved));
 
             log.info("domestic id card info: {}", domesticIDCard.toJson().toString());
-
+            exitDevice(handle);
             return domesticIDCard;
         }else if (type == 1) {
             log.info("read foreign id card .");
@@ -133,14 +137,40 @@ public class DekaService {
                     DekaReader.gbk_bytes_to_string(type_sign),
                     DekaReader.gbk_bytes_to_string(reserved));
             log.info("foreigner id card info: {}", foreignIDCard.toJson().toString());
+            exitDevice(handle);
             return foreignIDCard;
 
+        }else{
+            log.error("unknown id card type . type = {}", type);
         }
-
-
-
+        exitDevice(handle);
         return null;
 
+    }
+
+    public boolean cardExists() {
+        byte[] value = new byte[10];
+        boolean ret = false;
+        int res = dekaReader.dc_MulticardStatus(handle,value);
+        switch(res) {
+            case 0:
+                log.info("one card in reader");
+                ret = true;
+                break;
+            case 1:
+                log.info("no card in reader");
+                ret = false;
+                break;
+            case 2:
+                log.info("two card in reader");
+                ret = true;
+                break;
+            default:
+                log.info("checkMultiCard fail. err code: {}", res);
+                break;
+        }
+        exitDevice(handle);
+        return ret;
 
     }
 
