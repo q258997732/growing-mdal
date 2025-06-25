@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Client</title>
+</head>
+<body>
+<h1>WebSocket 客户端</h1>
+<button onclick="connect()">连接</button>
+<button onclick="disconnect()">断开</button>
+<br/><br/>
+<input type="text" id="messageInput" placeholder="输入消息">
+<button onclick="send()">发送</button>
+<br/><br/>
+<div id="output"></div>
+
+<script>
+    let socket;
+    const output = document.getElementById('output');
+
+    function connect() {
+        socket = new WebSocket('ws://localhost:8080/device-ws');
+
+        socket.onopen = () => {
+            log('连接已建立');
+        };
+
+        socket.onmessage = (event) => {
+            log(`收到服务端消息: ${event.data}`);
+        };
+
+        socket.onclose = () => {
+            log('连接已关闭');
+        };
+
+        socket.onerror = (error) => {
+            log(`错误: ${error.message}`);
+        };
+    }
+
+    function disconnect() {
+        if (socket) {
+            socket.close();
+        }
+    }
+
+    function send() {
+        const messageInput = document.getElementById('messageInput');
+        const message = messageInput.value;
+
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(message);
+            log(`已发送: ${message}`);
+            messageInput.value = '';
+        } else {
+            log('连接未建立');
+        }
+    }
+
+    function log(message) {
+        output.innerHTML += `<p>${new Date().toLocaleTimeString()}: ${message}</p>`;
+    }
+</script>
+</body>
+</html>
