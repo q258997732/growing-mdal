@@ -14,7 +14,7 @@ public class DekaService {
 
     public Object getIDCardInfo(){
 
-
+        return null;
 
 
     }
