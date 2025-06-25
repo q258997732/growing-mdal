@@ -1,9 +1,12 @@
 package bob.growingmdal.entity.baseinfo;
 
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.configurationprocessor.json.JSONObject;
 
+@Slf4j
 @Data
-public class ForeignIDCard {
+public class ForeignIDCard implements IDCard {
 
     private String englishName;      // 英文姓名
     private String sex;              // 性别
@@ -33,5 +36,45 @@ public class ForeignIDCard {
         this.versionNumber = versionNumber;
         this.departmentCode = departmentCode;
         this.typeSign = typeSign;
+    }
+
+    @Override
+    public String getName() {
+        return this.chineseName;
+    }
+
+    public String toString() {
+        return "{" +
+                "englishName='" + englishName + '\'' +
+                ", sex='" + sex + '\'' +
+                ", idNumber='" + idNumber + '\'' +
+                ", citizenship='" + citizenship + '\'' +
+                ", chineseName='" + chineseName + '\'' +
+                ", expireStartDay='" + expireStartDay + '\'' +
+                ", expireEndDay='" + expireEndDay + '\'' +
+                ", birthDay='" + birthDay + '\'' +
+                ", versionNumber='" + versionNumber + '\'' +
+                ", departmentCode='" + departmentCode + '\'' + '}';
+     }
+
+    public JSONObject toJson() {
+        JSONObject json = new JSONObject();
+        try {
+            json.put("englishName", this.englishName);
+            json.put("sex", this.sex);
+            json.put("idNumber", this.idNumber);
+            json.put("citizenship", this.citizenship);
+            json.put("chineseName", this.chineseName);
+            json.put("expireStartDay", this.expireStartDay);
+            json.put("expireEndDay", this.expireEndDay);
+            json.put("birthDay", this.birthDay);
+            json.put("versionNumber", this.versionNumber);
+            json.put("departmentCode", this.departmentCode);
+            json.put("typeSign", this.typeSign);
+        }catch (Exception e) {
+            log.error("ForeignIDCard toJson error: {}", e.getMessage());
+            return null;
+        }
+        return json;
     }
 }

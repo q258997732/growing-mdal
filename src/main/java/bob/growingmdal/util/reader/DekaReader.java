@@ -59,6 +59,13 @@ public interface DekaReader {
 
     int dc_init(short port, int baud);
 
+    /**
+     * @brief  关闭设备。
+     * @par    说明：
+     * 关闭设备的通讯和释放资源。
+     * @param[in] icdev 设备标识符。
+     * @return <0表示失败，==0表示成功。
+     */
     short dc_exit(int handle);
 
     short dc_beep(int handle, short _Msec);
@@ -168,6 +175,26 @@ public interface DekaReader {
     short dc_SamAReadCardInfo(int handle, int type, int[] text_len, byte[] text, int[] photo_len,
                               byte[] photo, int[] fingerprint_len, byte[] fingerprint, int[] extra_len, byte[] extra);
 
+    /**
+     * @brief  解析文字信息。
+     * @par    说明：
+     * 解析中国人居民身份证文字信息，获取相应的条目。
+     * @param[in] icdev 设备标识符。
+     * @param[in] charset 获取条目将采用的字符集，0表示GBK，1表示UCS-2LE，2表示UTF-8。
+     * @param[in] info_len 文字信息的长度。
+     * @param[in] info 文字信息。
+     * @param[out] name 姓名，请至少分配64个字节。
+     * @param[out] sex 性别代码，请至少分配8个字节。
+     * @param[out] nation 民族，请至少分配12个字节。
+     * @param[out] birth_day 出生日期，请至少分配36个字节。
+     * @param[out] address 住址，请至少分配144个字节。
+     * @param[out] id_number 公民身份号码，请至少分配76个字节。
+     * @param[out] department 签发机关，请至少分配64个字节。
+     * @param[out] expire_start_day 证件签发日期，请至少分配36个字节。
+     * @param[out] expire_end_day 证件终止日期，请至少分配36个字节。
+     * @param[out] reserved 预留项，请至少分配76个字节。
+     * @return <0表示失败，==0表示成功。
+     */
     short dc_ParseTextInfo(int handle, int charset, int info_len, byte[] info, byte[] name,
                            byte[] sex, byte[] nation, byte[] birth_day, byte[] address, byte[] id_number,
                            byte[] department, byte[] expire_start_day, byte[] expire_end_day, byte[] reserved);
@@ -290,5 +317,14 @@ public interface DekaReader {
             }
             System.out.print(hex.toUpperCase());
         }
+    }
+
+    /**
+     *
+     * @param res 接口返回状态码
+     * @return true: 成功，false: 失败
+     */
+    public static boolean isSuccess(int res) {
+        return res == 0;
     }
 }
