@@ -78,6 +78,14 @@ public class DekaService extends AnnotationDrivenHandler {
             return String.format("init deka readcard device failed . handle = %s", handle);
         }
 
+        // 判断是否插卡
+        Object res = cardExists();
+        if(res != "1"){
+            exitDevice(handle);
+            return "no card inserted .";
+        }
+
+
         // read id card info
         status = dekaReader.dc_SamAReadCardInfo(handle, 3, text_len, text, photo_len, photo, fingerprint_len, fingerprint, extra_len, extra);
         if (!DekaReader.isSuccess(status)) {
