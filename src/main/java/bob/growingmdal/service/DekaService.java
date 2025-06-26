@@ -111,7 +111,7 @@ public class DekaService extends AnnotationDrivenHandler {
                 break;
             }else{
                 log.debug("waiting for id card inserted.");
-                command.setTransferData("waiting for id card inserting.");
+                command.setTransferData("waiting for id card inserting." + i);
                 performOperation( command );
             }
             try {
