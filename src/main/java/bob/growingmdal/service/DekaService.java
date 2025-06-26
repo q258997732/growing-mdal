@@ -13,6 +13,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 @Slf4j
 @Service
 public class DekaService extends AnnotationDrivenHandler {
@@ -20,7 +22,7 @@ public class DekaService extends AnnotationDrivenHandler {
     @Autowired
     private ApplicationEventPublisher eventPublisher;
 
-
+    private final AtomicBoolean isCheckingCard = new AtomicBoolean(false);
     private final WebSocketSessionManager sessionManager;
     private final ObjectMapper objectMapper;
     private final int timeout = 60000;  // 超时时间
@@ -72,6 +74,12 @@ public class DekaService extends AnnotationDrivenHandler {
      */
     @DeviceOperation(DeviceType = "IDCard", ProcessCommand = "getIDCardInfo")
     public Object getIDCardInfo(DeviceCommand command) {
+
+        if (!isCheckingCard.compareAndSet(false, true)) {
+            log.warn("Another ID card check is already in progress");
+            return "Another ID card check is already in progress";
+        }
+
         // 初始化变量
         int[] text_len = new int[1];    // 身份证信息长度
         byte[] text = new byte[1024];   // 身份证信息
@@ -99,7 +107,7 @@ public class DekaService extends AnnotationDrivenHandler {
                 break;
             }else{
                 log.debug("waiting for id card inserted.");
-                command.setTransferData("waiting for id card not inserting.");
+                command.setTransferData("waiting for id card inserting.");
                 performOperation( command );
             }
             try {
