@@ -1,11 +1,7 @@
-package bob.growingmdal.util.reader;
+package bob.growingmdal.adapter;
 
-import bob.growingmdal.util.loader.CustomDllLoader;
 import bob.growingmdal.util.loader.NativeLibraryLoader;
-import jnr.ffi.Pointer;
-import org.springframework.stereotype.Component;
 
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 
 /**

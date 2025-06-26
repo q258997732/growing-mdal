@@ -1,11 +1,14 @@
 package bob.growingmdal.util;
 
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 
+@Slf4j
 public class DllLoader {
     public static void loadDll(String dllName) {
         try {
@@ -20,7 +23,7 @@ public class DllLoader {
             if (in != null) {
                 Files.copy(in, temp.toPath(), StandardCopyOption.REPLACE_EXISTING);
             } else{
-                System.out.println("DLL not found in resources: " + dllName);
+                log.error("DLL not found: " + dllName);
             }
 
             // 加载DLL

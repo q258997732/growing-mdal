@@ -1,6 +1,6 @@
 package bob.growingmdal.util.api;
 
-import bob.growingmdal.entity.DeviceMessage;
+import bob.growingmdal.core.command.DeviceCommand;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.configurationprocessor.json.JSONException;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
@@ -11,7 +11,7 @@ public class MessageConvertUtil {
     /**
      * 检查消息格式
      * @param message 消息
-     * @return 格式是否正确
+     * @return boolean 格式是否正确
      */
     public static boolean checkMessage(String message) {
         try {
@@ -27,9 +27,9 @@ public class MessageConvertUtil {
      * @param message 消息
      * @return 请求主体DeviceMessage
      */
-    public static DeviceMessage extractMessage(String message) {
+    public static DeviceCommand extractMessage(String message) {
         if(checkMessage(message)){
-            return new DeviceMessage(message);
+            return new DeviceCommand(message);
         }else{
             log.error("Invalid message format");
             return null;
