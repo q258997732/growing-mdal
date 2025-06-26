@@ -25,8 +25,8 @@ public class DekaService extends AnnotationDrivenHandler {
     private final AtomicBoolean isCheckingCard = new AtomicBoolean(false);
     private final WebSocketSessionManager sessionManager;
     private final ObjectMapper objectMapper;
-    private final int timeout = 2000;  // 超时时间
-    private final int interval = 200;  // 每次循环间隔
+    private final int timeout = 3000;  // 超时时间
+    private final int interval = 2000;  // 每次循环间隔
 
     DekaReader dekaReader = DekaReader.load();
     int handle = -1;
@@ -91,10 +91,10 @@ public class DekaService extends AnnotationDrivenHandler {
         byte[] extra = new byte[70];
 
         handle = initDevice();
-        if (handle < 0) {
-            log.error("init deka readcard device failed . handle = {}", handle);
-            return String.format("init deka readcard device failed . handle = %s", handle);
-        }
+//        if (handle < 0) {
+//            log.error("init deka readcard device failed . handle = {}", handle);
+//            return String.format("init deka readcard device failed . handle = %s", handle);
+//        }
 
         // read id card inserted status
         boolean insertStatus = false;
@@ -107,7 +107,6 @@ public class DekaService extends AnnotationDrivenHandler {
             if (insertStatus) {
                 log.debug("id card inserted.");
                 command.setTransferData("id card inserted.");
-                performOperation( command );
                 break;
             }else{
                 log.debug("waiting for id card inserted.");

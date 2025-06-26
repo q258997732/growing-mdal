@@ -60,43 +60,33 @@ public abstract class AnnotationDrivenHandler implements HardwareCommandHandler 
         if (method == null) {
             throw new UnsupportedOperationException("unsupported operate: " + key);
         }
-        if (!executingMethods.add(key)) {
-            return "Operation " + key + " is already in progress";
-        } else {
-            // 获取方法参数
-            Class<?>[] parameterTypes = method.getParameterTypes();
-            try {
 
-                Thread thread = new Thread(() -> {
-                    Object result = null;
-                    // 判断是否需要传入参数
-                    try {
-                        if (parameterTypes.length == 0) {
-                            result = method.invoke(this);
-                        } else {
-                            result = method.invoke(this, command);
-                        }
+        // 获取方法参数
+        Class<?>[] parameterTypes = method.getParameterTypes();
 
-                        // 组合返回内容
-                        if (result == null) {
-                            command.setTransferData("");
-                        } else {
-                            command.setTransferData(result.toString());
-                        }
-                    } catch (Exception e) {
-                        command.setTransferData("error :" + e.getMessage());
-                        throw new RuntimeException("need parameter: " + parameterTypesToString(parameterTypes) + "\n" + e);
-                    }
-                });
-                thread.start();
-
-                command.setFunction("output");
-                return command.toString();
-            } catch (Exception e) {
-                command.setTransferData("error :" + e.getMessage());
-                throw new RuntimeException("Thread run error: "+e.getMessage());
+        Object result = null;
+        // 判断是否需要传入参数
+        try {
+            if (parameterTypes.length == 0) {
+                result = method.invoke(this);
+            } else {
+                result = method.invoke(this, command);
             }
 
+            // 组合返回内容
+            if (result == null) {
+                command.setTransferData("");
+            } else {
+                command.setTransferData(result.toString());
+            }
+            command.setFunction("output");
+            return command.toString();
+
+        } catch (Exception e) {
+            command.setTransferData("error :" + e.getMessage());
+            throw new RuntimeException("need parameter: " + parameterTypesToString(parameterTypes) + "\n" + e);
         }
+
     }
+
 }
