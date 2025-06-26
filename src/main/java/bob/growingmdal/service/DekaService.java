@@ -3,21 +3,31 @@ package bob.growingmdal.service;
 import bob.growingmdal.annotation.DeviceOperation;
 import bob.growingmdal.core.command.DeviceCommand;
 import bob.growingmdal.core.dispatcher.AnnotationDrivenHandler;
+import bob.growingmdal.entity.OperationResultEvent;
 import bob.growingmdal.entity.baseinfo.DomesticIDCard;
 import bob.growingmdal.entity.baseinfo.ForeignIDCard;
 import bob.growingmdal.adapter.DekaReader;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
 public class DekaService extends AnnotationDrivenHandler {
 
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
+
+
     private final WebSocketSessionManager sessionManager;
     private final ObjectMapper objectMapper;
 
+    DekaReader dekaReader = DekaReader.load();
+    int handle = -1;
+    int status = -1;
+    int type = 0;
 
     @Autowired
     public DekaService(WebSocketSessionManager sessionManager,
@@ -26,16 +36,14 @@ public class DekaService extends AnnotationDrivenHandler {
         this.objectMapper = objectMapper;
     }
 
+    public void performOperation(DeviceCommand command) {
+        eventPublisher.publishEvent(new OperationResultEvent(command.getSession(), command.toString()));
+    }
+
     @Override
     public boolean supports(DeviceCommand command) {
         return "IDCard".equals(command.getDeviceType());
     }
-
-    DekaReader dekaReader = DekaReader.load();
-    int handle = -1;
-    int status = -1;
-    int type = 0;
-
 
     private int initDevice() {
         handle = dekaReader.dc_init(DekaReader.PORT_USB, DekaReader.BAUD);
@@ -53,8 +61,6 @@ public class DekaService extends AnnotationDrivenHandler {
             log.debug("exit device success . status = {}", status);
             return true;
         }
-
-
     }
 
     /**
@@ -63,7 +69,6 @@ public class DekaService extends AnnotationDrivenHandler {
      */
     @DeviceOperation(DeviceType = "IDCard", ProcessCommand = "getIDCardInfo")
     public Object getIDCardInfo() {
-
         // 初始化变量
         int[] text_len = new int[1];    // 身份证信息长度
         byte[] text = new byte[1024];   // 身份证信息
@@ -72,20 +77,15 @@ public class DekaService extends AnnotationDrivenHandler {
         int[] fingerprint_len = new int[1]; // 指纹信息长度
         byte[] fingerprint = new byte[1024]; // 指纹信息
         int[] extra_len = new int[1];
-        byte[] extra = new byte[1024];
+        byte[] extra = new byte[70];
 
-        initDevice();
+        handle = initDevice();
         if (handle < 0) {
             log.error("init deka readcard device failed . handle = {}", handle);
             return String.format("init deka readcard device failed . handle = %s", handle);
         }
 
-        // 判断是否插卡
-        Object res = cardExists();
-        if(res != "1"){
-            exitDevice(handle);
-            return "no card inserted .";
-        }
+        // read id card inserted status
 
 
         // read id card info
@@ -188,34 +188,14 @@ public class DekaService extends AnnotationDrivenHandler {
     }
 
     /**
-     * 检测身份证是否存在
-     * @return 卡的数量
+     * 读取身份证
+     * @return 0 成功，非0失败
      */
     @DeviceOperation(DeviceType = "IDCard", ProcessCommand = "cardExists")
-    public Object cardExists() {
-        byte[] value = new byte[10];
-        Object ret = "origin false";
-        int res = dekaReader.dc_MulticardStatus(handle,value);
-        switch(res) {
-            case 0:
-                log.info("one card in reader");
-                ret = "1";
-                break;
-            case 1:
-                log.info("no card in reader");
-                ret = "0";
-                break;
-            case 2:
-                log.info("two card in reader");
-                ret = "2";
-                break;
-            default:
-                log.info("check IDCard fail. err code: {}", res);
-                ret = String.format("check IDCard fail. err code: %s", res);
-                break;
-        }
-        exitDevice(handle);
-        return ret;
+    public boolean cardExists() {
+        // 判断是否插卡
+        status = dekaReader.dc_find_i_d(handle);
+        return status == 0;
     }
 
     @DeviceOperation(DeviceType = "IDCard", ProcessCommand = "test")

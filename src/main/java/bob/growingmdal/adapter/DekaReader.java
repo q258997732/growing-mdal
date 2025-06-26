@@ -273,6 +273,15 @@ public interface DekaReader {
      */
     short dc_i_d_query_photo_file(int handle, String fileName);
 
+    /**
+     * @brief  查找身份证。
+     * @par    说明：
+     * 以读取数据方式查找是否有身份证存在于感应区。
+     * @param[in] icdev 设备标识符。
+     * @return <0表示失败或不存在，==0表示存在。
+     */
+    short dc_find_i_d(int handle);
+
     public static short returnActualLength(byte[] data) {
         short i = 0;
         for (; i < data.length; i++) {
