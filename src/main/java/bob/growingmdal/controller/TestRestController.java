@@ -2,7 +2,7 @@ package bob.growingmdal.controller;
 
 import bob.growingmdal.entity.response.ResponseBean;
 import bob.growingmdal.entity.response.SuccessResponseBean;
-import bob.growingmdal.handler.DeviceWebSocketHandler;
+import bob.growingmdal.handler.HardwareWebSocketHandler;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,7 +20,7 @@ public class TestRestController {
 
     @GetMapping("/send/{message}")
     public String sendMessage(@PathVariable String message) {
-        DeviceWebSocketHandler.broadcast("Server push: " + message);
+        HardwareWebSocketHandler.broadcast("Server push: " + message);
         return "message push all: " + message;
     }
 
