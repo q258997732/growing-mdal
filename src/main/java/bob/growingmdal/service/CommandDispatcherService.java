@@ -23,7 +23,7 @@ public class CommandDispatcherService {
 
     public Object dispatch(DeviceCommand command) {
         Object result = null;
-        log.info("Dispatching command: device={}, cmd={}",
+        log.debug("Dispatching command: device={}, cmd={}",
                 command.getDeviceType(), command.getProcessCommand());
 
         Optional<HardwareCommandHandler> handler = handlers.stream()

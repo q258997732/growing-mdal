@@ -53,7 +53,7 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
             sendError(session, "INVALID_JSON", "Payload is not valid JSON");
             return;
         }
-        log.debug("Received raw message: {}", payload);
+        log.info("Received raw message: {}", payload);
         try {
             // 配置更健壮的 ObjectMapper
             ObjectMapper mapper = new ObjectMapper()
@@ -62,6 +62,7 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
                     .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);
 
             DeviceCommand command = mapper.readValue(payload, DeviceCommand.class);
+            command.setFunction("OutPut");
 
             // 详细日志记录解析结果
             log.debug("Parsed command: deviceType={}, processCommand={}",
@@ -84,9 +85,7 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
         } catch (Exception e) {
             log.debug("Failed to process message: {}", payload, e);
             sendError(session, "INVALID_COMMAND",
-                    "Error: " + e.getMessage() +
-                            ". Required fields: deviceType, processCommand. " +
-                            "Example: {\"DeviceType\":\"IDCard\",\"ProcessCommand\":\"test\"}");
+                    "Error: " + e.getMessage());
         }
     }
 
