@@ -99,6 +99,10 @@ public class DekaService extends AnnotationDrivenHandler {
         // read id card inserted status
         boolean insertStatus = false;
         for(int i = 0; i < timeout / interval; i++){
+            if (!isCheckingCard.get()) {
+                log.info("ID card check was cancelled");
+                return "ID card check was cancelled";
+            }
             insertStatus = IdCardExists();
             if (insertStatus) {
                 log.debug("id card inserted.");
@@ -113,13 +117,15 @@ public class DekaService extends AnnotationDrivenHandler {
             try {
                 Thread.sleep(interval);
             } catch (InterruptedException e) {
+                isCheckingCard.set(false);
                 return "error: id card is not inserting. " + e.getMessage();
             }
         }
         if(!insertStatus){
+            isCheckingCard.set(false);
             return "timeout : id card is not inserting. ";
         }
-
+        isCheckingCard.set(false);
 
 
         // read id card info
@@ -236,6 +242,15 @@ public class DekaService extends AnnotationDrivenHandler {
     public Object test(){
         log.info("invoke test success. ");
         return "invoke test success. ";
+    }
+
+    @DeviceOperation(DeviceType = "IDCard", ProcessCommand = "cancelCheck")
+    public String cancelIdCardCheck() {
+        if (isCheckingCard.compareAndSet(true, false)) {
+            log.info("ID card check cancelled successfully");
+            return "ID card check cancelled successfully";
+        }
+        return "No ID card check in progress to cancel";
     }
 
 

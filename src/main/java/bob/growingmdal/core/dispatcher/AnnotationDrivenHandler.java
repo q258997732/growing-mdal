@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public abstract class AnnotationDrivenHandler implements HardwareCommandHandler {
     private final Map<String, Method> operationMethods = new ConcurrentHashMap<>();
     private final Set<String> executingMethods = ConcurrentHashMap.newKeySet();
-    private boolean initialized = false;
+    private volatile boolean initialized = false;
 
     // 初始化方法路由表
     private synchronized void initMethodRegistry() {
@@ -62,7 +62,7 @@ public abstract class AnnotationDrivenHandler implements HardwareCommandHandler 
             throw new UnsupportedOperationException("unsupported operate: " + key);
         }
         if (!executingMethods.add(key)) {
-            return "Operation " + key + " is already in progress");
+            return "Operation " + key + " is already in progress";
         }else {
             // 获取方法参数
             Class<?>[] parameterTypes = method.getParameterTypes();
