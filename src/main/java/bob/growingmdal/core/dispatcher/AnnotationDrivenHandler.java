@@ -68,7 +68,7 @@ public abstract class AnnotationDrivenHandler implements HardwareCommandHandler 
             if (parameterTypes.length == 0) {
                 result = method.invoke(this);
             } else {
-                result = method.invoke(this, command.getTransferData());
+                result = method.invoke(this, command);
             }
 
             // 组合返回内容

@@ -23,11 +23,14 @@ public class DekaService extends AnnotationDrivenHandler {
 
     private final WebSocketSessionManager sessionManager;
     private final ObjectMapper objectMapper;
+    private final int timeout = 60000;  // 超时时间
+    private final int interval = 2000;  // 每次循环间隔
 
     DekaReader dekaReader = DekaReader.load();
     int handle = -1;
     int status = -1;
     int type = 0;
+
 
     @Autowired
     public DekaService(WebSocketSessionManager sessionManager,
@@ -68,7 +71,7 @@ public class DekaService extends AnnotationDrivenHandler {
      * @return 身份证实体类
      */
     @DeviceOperation(DeviceType = "IDCard", ProcessCommand = "getIDCardInfo")
-    public Object getIDCardInfo() {
+    public Object getIDCardInfo(DeviceCommand command) {
         // 初始化变量
         int[] text_len = new int[1];    // 身份证信息长度
         byte[] text = new byte[1024];   // 身份证信息
@@ -86,6 +89,24 @@ public class DekaService extends AnnotationDrivenHandler {
         }
 
         // read id card inserted status
+        boolean insertStatus = false;
+        for(int i = 0; i < timeout / interval; i++){
+            insertStatus = IdCardExists();
+            if (insertStatus) {
+                log.debug("id card inserted.");
+                command.setTransferData("id card inserted.");
+                performOperation( command );
+                break;
+            }else{
+                log.debug("waiting for id card inserted.");
+                command.setTransferData("id card not inserting.");
+                performOperation( command );
+            }
+        }
+        if(!insertStatus){
+            return "timeout : id card is not inserting. ";
+        }
+
 
 
         // read id card info
@@ -192,7 +213,7 @@ public class DekaService extends AnnotationDrivenHandler {
      * @return 0 成功，非0失败
      */
     @DeviceOperation(DeviceType = "IDCard", ProcessCommand = "cardExists")
-    public boolean cardExists() {
+    public boolean IdCardExists() {
         // 判断是否插卡
         status = dekaReader.dc_find_i_d(handle);
         return status == 0;
