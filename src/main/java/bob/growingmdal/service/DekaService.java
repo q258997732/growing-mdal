@@ -112,6 +112,19 @@ public class DekaService extends AnnotationDrivenHandler {
             byte[] expire_end_day = new byte[36];
             byte[] reserved = new byte[76];
             status = dekaReader.dc_ParseTextInfo(handle, 0, text_len[0], text, name, sex, nation, birth_day, address, id_number, department, expire_start_day, expire_end_day, reserved);
+
+            // debug
+            log.debug("text: {}", DekaReader.gbk_bytes_to_string(text));
+            log.debug("name: {}", DekaReader.gbk_bytes_to_string(name));
+            log.debug("sex: {}", DekaReader.gbk_bytes_to_string(sex));
+            log.debug("nation: {}", DekaReader.gbk_bytes_to_string(nation));
+            log.debug("birth_day: {}", DekaReader.gbk_bytes_to_string(birth_day));
+            log.debug("address: {}", DekaReader.gbk_bytes_to_string(address));
+            log.debug("id_number: {}", DekaReader.gbk_bytes_to_string(id_number));
+            log.debug("department: {}", DekaReader.gbk_bytes_to_string(department));
+            log.debug("expire_start_day: {}", DekaReader.gbk_bytes_to_string(expire_start_day));
+            log.debug("expire_end_day: {}", DekaReader.gbk_bytes_to_string(expire_end_day));
+
             if(!DekaReader.isSuccess(status)){
                 log.error("parse text info failed . status = {}", status);
                 status = dekaReader.dc_exit(handle);
