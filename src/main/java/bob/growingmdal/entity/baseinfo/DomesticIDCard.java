@@ -105,8 +105,8 @@ public class DomesticIDCard implements IDCard {
     public String toString() {
         return "{" +
                 "\"name\":\"" + name + "\"" +
-                ", \"sex\":\"" + getSex() + "\"" +
-                ", \"nation\":\"" + NATION_MAP.getOrDefault(nation, nation) + "\"" +
+                ", \"sex\":\"" + sex + "\"" +
+                ", \"nation\":\"" + nation + "\"" +
                 ", \"birthDay\":\"" + birthDay + "\"" +
                 ", \"address\":\"" + address + "\"" +
                 ", \"idNumber\":\"" + idNumber + "\"" +
