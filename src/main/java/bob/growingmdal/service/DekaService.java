@@ -38,7 +38,9 @@ public class DekaService extends AnnotationDrivenHandler {
 
 
     private int initDevice() {
-        return dekaReader.dc_init(DekaReader.PORT_USB, DekaReader.BAUD);
+        handle = dekaReader.dc_init(DekaReader.PORT_USB, DekaReader.BAUD);
+        dekaReader.dc_beep(handle,(short)10);
+        return handle;
     }
 
     private boolean exitDevice(int handle) {
@@ -72,7 +74,7 @@ public class DekaService extends AnnotationDrivenHandler {
         int[] extra_len = new int[1];
         byte[] extra = new byte[1024];
 
-        handle = initDevice();
+        initDevice();
         if (handle < 0) {
             log.error("init deka readcard device failed . handle = {}", handle);
             return String.format("init deka readcard device failed . handle = %s", handle);
