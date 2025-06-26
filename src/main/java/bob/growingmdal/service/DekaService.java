@@ -25,8 +25,8 @@ public class DekaService extends AnnotationDrivenHandler {
     private final AtomicBoolean isCheckingCard = new AtomicBoolean(false);
     private final WebSocketSessionManager sessionManager;
     private final ObjectMapper objectMapper;
-    private final int timeout = 60000;  // 超时时间
-    private final int interval = 2000;  // 每次循环间隔
+    private final int timeout = 2000;  // 超时时间
+    private final int interval = 200;  // 每次循环间隔
 
     DekaReader dekaReader = DekaReader.load();
     int handle = -1;
