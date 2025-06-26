@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.configurationprocessor.json.JSONException;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
+import org.springframework.web.socket.WebSocketSession;
 
 @Slf4j
 @Data
@@ -52,7 +53,7 @@ public class DeviceCommand {
 
 
     private String TransferData;   // 传输数据(JSON字符串)
-    private String sessionId;   // WebSocket会话ID
+    private WebSocketSession session;   // WebSocket会话ID
 
 
     // 返回Json字符串

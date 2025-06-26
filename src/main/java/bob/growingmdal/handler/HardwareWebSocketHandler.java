@@ -1,6 +1,7 @@
 package bob.growingmdal.handler;
 
 import bob.growingmdal.core.command.DeviceCommand;
+import bob.growingmdal.entity.OperationResultEvent;
 import bob.growingmdal.service.CommandDispatcherService;
 import bob.growingmdal.service.WebSocketSessionManager;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -8,6 +9,7 @@ import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.event.EventListener;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -21,8 +23,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Slf4j
 public class HardwareWebSocketHandler extends TextWebSocketHandler {
 
-    private static final CopyOnWriteArrayList<WebSocketSession> sessions = new CopyOnWriteArrayList<>();
+    @EventListener
+    public void handleOperationResult(OperationResultEvent event) {
+        sendToClient(event.getSession(), event.getResult());
+    }
 
+    private static final CopyOnWriteArrayList<WebSocketSession> sessions = new CopyOnWriteArrayList<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final CommandDispatcherService dispatcher;
     private final WebSocketSessionManager sessionManager;
@@ -69,7 +75,7 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
             if (command.getProcessCommand() == null || command.getProcessCommand().isBlank()) {
                 throw new IllegalArgumentException("Missing required field: processCommand");
             }
-            command.setSessionId(session.getId());
+            command.setSession(session);
             Object result = dispatcher.dispatch(command);
             if(result != null)
                 sendToClient(session, result.toString());
