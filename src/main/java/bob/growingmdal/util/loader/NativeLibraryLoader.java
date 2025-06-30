@@ -27,6 +27,8 @@ public class NativeLibraryLoader {
             // 2. 设置JNR库搜索路径
             addLibraryPath(tempFile.getParent());
 
+            System.out.println("JNR library search path: " + System.getProperty("jnr.ffi.library.path"));
+
             // 3. 加载库并返回接口实例
             return LibraryLoader.create(interfaceClass)
                     .load(libName.replace(".dll", "").replace(".so", "").replace(".dylib", ""));
@@ -36,6 +38,7 @@ public class NativeLibraryLoader {
     }
 
     private static Path extractLibrary(String libName, String resourcePath) throws IOException {
+        System.out.println("Loading library: " + resourcePath + libName);
         InputStream is = io.netty.util.internal.NativeLibraryLoader.class.getResourceAsStream(resourcePath + libName);
         if (is == null) {
             throw new IOException("Resource not found: " + resourcePath + libName);
@@ -43,6 +46,9 @@ public class NativeLibraryLoader {
 
         Path tempDir = Files.createTempDirectory("native-libs");
         Path tempFile = tempDir.resolve(libName);
+
+        System.out.println("Extracting DLL to: " + tempFile.toAbsolutePath());  // 添加这行
+
         Files.copy(is, tempFile, StandardCopyOption.REPLACE_EXISTING);
         tempFile.toFile().deleteOnExit();
         tempDir.toFile().deleteOnExit();
