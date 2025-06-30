@@ -56,7 +56,7 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
                 sendError(session, "INVALID_JSON", "Payload is not valid JSON");
                 return;
             }
-            log.info("Received raw message: {}", payload);
+//            log.info("Received raw message: {}", payload);
             try {
                 // 配置更健壮的 ObjectMapper
                 ObjectMapper mapper = new ObjectMapper()

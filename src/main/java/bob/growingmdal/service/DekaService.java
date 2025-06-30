@@ -56,6 +56,12 @@ public class DekaService extends AnnotationDrivenHandler {
         return handle;
     }
 
+    private int initDevice(short port, int baud) {
+        handle = dekaReader.dc_init(port, baud);
+        dekaReader.dc_beep(handle,(short)10);
+        return handle;
+    }
+
     private boolean exitDevice(int handle) {
         status = dekaReader.dc_exit(handle);
         handle = -1;
@@ -251,6 +257,7 @@ public class DekaService extends AnnotationDrivenHandler {
         }
         return "No ID card check in progress to cancel";
     }
+
 
 
 
