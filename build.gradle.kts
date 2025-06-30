@@ -52,6 +52,8 @@ dependencies {
     implementation("net.java.dev.jna:jna-platform:4.5.1")
     // JAI
     implementation("com.sun.media:jai-codec:1.1.3")
+    // Printer
+    implementation("org.apache.pdfbox:pdfbox:3.0.1")
 
 }
 

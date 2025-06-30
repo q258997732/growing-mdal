@@ -47,7 +47,7 @@ public class NativeLibraryLoader {
         Path tempDir = Files.createTempDirectory("native-libs");
         Path tempFile = tempDir.resolve(libName);
 
-        System.out.println("Extracting DLL to: " + tempFile.toAbsolutePath());  // 添加这行
+//        System.out.println("Extracting DLL to: " + tempFile.toAbsolutePath());  // 添加这行
 
         Files.copy(is, tempFile, StandardCopyOption.REPLACE_EXISTING);
         tempFile.toFile().deleteOnExit();
