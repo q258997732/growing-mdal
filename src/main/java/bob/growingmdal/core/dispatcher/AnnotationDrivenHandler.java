@@ -79,7 +79,7 @@ public abstract class AnnotationDrivenHandler implements HardwareCommandHandler 
             } else {
                 command.setTransferData(result.toString());
             }
-            command.setFunction("output");
+            command.setFunction("OutPut");
             return command.toString();
 
         } catch (Exception e) {

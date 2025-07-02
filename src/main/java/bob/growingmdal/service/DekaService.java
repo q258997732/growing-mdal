@@ -6,13 +6,14 @@ import bob.growingmdal.core.dispatcher.AnnotationDrivenHandler;
 import bob.growingmdal.entity.OperationResultEvent;
 import bob.growingmdal.entity.baseinfo.DomesticIDCard;
 import bob.growingmdal.entity.baseinfo.ForeignIDCard;
-import bob.growingmdal.adapter.DekaReader;
+import bob.growingmdal.adapter.DekaReaderAdapter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
+import java.io.UnsupportedEncodingException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
@@ -28,7 +29,7 @@ public class DekaService extends AnnotationDrivenHandler {
     private final int timeout = 30000;  // 超时时间
     private final int interval = 2000;  // 每次循环间隔
 
-    DekaReader dekaReader = DekaReader.load();
+    DekaReaderAdapter dekaReaderAdapter = DekaReaderAdapter.load();
     int handle = -1;
     int status = -1;
     int type = 0;
@@ -51,21 +52,21 @@ public class DekaService extends AnnotationDrivenHandler {
     }
 
     private int initDevice() {
-        handle = dekaReader.dc_init(DekaReader.PORT_USB, DekaReader.BAUD);
-        dekaReader.dc_beep(handle,(short)10);
+        handle = dekaReaderAdapter.dc_init(DekaReaderAdapter.PORT_USB, DekaReaderAdapter.BAUD);
+        dekaReaderAdapter.dc_beep(handle,(short)10);
         return handle;
     }
 
     private int initDevice(short port, int baud) {
-        handle = dekaReader.dc_init(port, baud);
-        dekaReader.dc_beep(handle,(short)10);
+        handle = dekaReaderAdapter.dc_init(port, baud);
+        dekaReaderAdapter.dc_beep(handle,(short)10);
         return handle;
     }
 
     private boolean exitDevice(int handle) {
-        status = dekaReader.dc_exit(handle);
+        status = dekaReaderAdapter.dc_exit(handle);
         handle = -1;
-        if (!DekaReader.isSuccess(status)) {
+        if (!DekaReaderAdapter.isSuccess(status)) {
             log.error("exit device failed . status = {}", status);
             return false;
         } else {
@@ -79,7 +80,7 @@ public class DekaService extends AnnotationDrivenHandler {
      * @return 身份证实体类
      */
     @DeviceOperation(DeviceType = "IDCard", ProcessCommand = "getIDCardInfo")
-    public Object getIDCardInfo(DeviceCommand command) {
+    public Object getIDCardInfo(DeviceCommand command) throws UnsupportedEncodingException {
 
         if (!isCheckingCard.compareAndSet(false, true)) {
             log.warn("Another ID card check is already in progress");
@@ -134,10 +135,10 @@ public class DekaService extends AnnotationDrivenHandler {
 
 
         // read id card info
-        status = dekaReader.dc_SamAReadCardInfo(handle, 3, text_len, text, photo_len, photo, fingerprint_len, fingerprint, extra_len, extra);
-        if (!DekaReader.isSuccess(status)) {
+        status = dekaReaderAdapter.dc_SamAReadCardInfo(handle, 3, text_len, text, photo_len, photo, fingerprint_len, fingerprint, extra_len, extra);
+        if (!DekaReaderAdapter.isSuccess(status)) {
             log.error("read id card info failed . status = {} , exit device ...", status);
-            status = dekaReader.dc_exit(handle);
+            status = dekaReaderAdapter.dc_exit(handle);
             return String.format("read id card info failed . status = %s, exit device ...", status);
         }
         if ((text[0] >= 'A') && (text[0] <= 'Z') && (text[1] == 0))
@@ -156,35 +157,35 @@ public class DekaService extends AnnotationDrivenHandler {
             byte[] expire_start_day = new byte[36];
             byte[] expire_end_day = new byte[36];
             byte[] reserved = new byte[76];
-            status = dekaReader.dc_ParseTextInfo(handle, 0, text_len[0], text, name, sex, nation, birth_day, address, id_number, department, expire_start_day, expire_end_day, reserved);
+            status = dekaReaderAdapter.dc_ParseTextInfo(handle, 0, text_len[0], text, name, sex, nation, birth_day, address, id_number, department, expire_start_day, expire_end_day, reserved);
 
             // debug
-            log.debug("text: {}", DekaReader.gbk_bytes_to_string(text));
-            log.debug("name: {}", DekaReader.gbk_bytes_to_string(name));
-            log.debug("sex: {}", DekaReader.gbk_bytes_to_string(sex));
-            log.debug("nation: {}", DekaReader.gbk_bytes_to_string(nation));
-            log.debug("birth_day: {}", DekaReader.gbk_bytes_to_string(birth_day));
-            log.debug("address: {}", DekaReader.gbk_bytes_to_string(address));
-            log.debug("id_number: {}", DekaReader.gbk_bytes_to_string(id_number));
-            log.debug("department: {}", DekaReader.gbk_bytes_to_string(department));
-            log.debug("expire_start_day: {}", DekaReader.gbk_bytes_to_string(expire_start_day));
-            log.debug("expire_end_day: {}", DekaReader.gbk_bytes_to_string(expire_end_day));
+            log.debug("text: {}", DekaReaderAdapter.gbk_bytes_to_string(text));
+            log.debug("name: {}", DekaReaderAdapter.gbk_bytes_to_string(name));
+            log.debug("sex: {}", DekaReaderAdapter.gbk_bytes_to_string(sex));
+            log.debug("nation: {}", DekaReaderAdapter.gbk_bytes_to_string(nation));
+            log.debug("birth_day: {}", DekaReaderAdapter.gbk_bytes_to_string(birth_day));
+            log.debug("address: {}", DekaReaderAdapter.gbk_bytes_to_string(address));
+            log.debug("id_number: {}", DekaReaderAdapter.gbk_bytes_to_string(id_number));
+            log.debug("department: {}", DekaReaderAdapter.gbk_bytes_to_string(department));
+            log.debug("expire_start_day: {}", DekaReaderAdapter.gbk_bytes_to_string(expire_start_day));
+            log.debug("expire_end_day: {}", DekaReaderAdapter.gbk_bytes_to_string(expire_end_day));
 
-            if(!DekaReader.isSuccess(status)){
+            if(!DekaReaderAdapter.isSuccess(status)){
                 log.error("parse text info failed . status = {}", status);
-                status = dekaReader.dc_exit(handle);
+                status = dekaReaderAdapter.dc_exit(handle);
                 return String.format("parse text info failed . status = %s, exit device ...", status);
             }
-            DomesticIDCard domesticIDCard = new DomesticIDCard(DekaReader.gbk_bytes_to_string(name),
-                    DekaReader.gbk_bytes_to_string(sex),
-                    DekaReader.gbk_bytes_to_string(nation),
-                    DekaReader.gbk_bytes_to_string(birth_day),
-                    DekaReader.gbk_bytes_to_string(address),
-                    DekaReader.gbk_bytes_to_string(id_number),
-                    DekaReader.gbk_bytes_to_string(department),
-                    DekaReader.gbk_bytes_to_string(expire_start_day),
-                    DekaReader.gbk_bytes_to_string(expire_end_day),
-                    DekaReader.gbk_bytes_to_string(reserved));
+            DomesticIDCard domesticIDCard = new DomesticIDCard(DekaReaderAdapter.gbk_bytes_to_string(name),
+                    DekaReaderAdapter.gbk_bytes_to_string(sex),
+                    DekaReaderAdapter.gbk_bytes_to_string(nation),
+                    DekaReaderAdapter.gbk_bytes_to_string(birth_day),
+                    DekaReaderAdapter.gbk_bytes_to_string(address),
+                    DekaReaderAdapter.gbk_bytes_to_string(id_number),
+                    DekaReaderAdapter.gbk_bytes_to_string(department),
+                    DekaReaderAdapter.gbk_bytes_to_string(expire_start_day),
+                    DekaReaderAdapter.gbk_bytes_to_string(expire_end_day),
+                    DekaReaderAdapter.gbk_bytes_to_string(reserved));
 
             log.info("domestic id card info: {}", domesticIDCard.toJson().toString());
             exitDevice(handle);
@@ -203,24 +204,24 @@ public class DekaService extends AnnotationDrivenHandler {
             byte[] department_code = new byte[20];
             byte[] type_sign = new byte[8];
             byte[] reserved = new byte[16];
-            status = dekaReader.dc_ParseTextInfoForForeigner(handle, 0, text_len[0], text, english_name, sex, id_number, citizenship, chinese_name, expire_start_day, expire_end_day, birth_day, version_number, department_code, type_sign, reserved);
-            if(!DekaReader.isSuccess(status)){
+            status = dekaReaderAdapter.dc_ParseTextInfoForForeigner(handle, 0, text_len[0], text, english_name, sex, id_number, citizenship, chinese_name, expire_start_day, expire_end_day, birth_day, version_number, department_code, type_sign, reserved);
+            if(!DekaReaderAdapter.isSuccess(status)){
                 log.error("parse Foreigner text info failed . status = {}", status);
-                status = dekaReader.dc_exit(handle);
+                status = dekaReaderAdapter.dc_exit(handle);
                 return String.format("parse Foreigner text info failed . status = %s, exit device ...", status);
             }
-            ForeignIDCard foreignIDCard = new ForeignIDCard(DekaReader.gbk_bytes_to_string(english_name),
-                    DekaReader.gbk_bytes_to_string(sex),
-                    DekaReader.gbk_bytes_to_string(id_number),
-                    DekaReader.gbk_bytes_to_string(citizenship),
-                    DekaReader.gbk_bytes_to_string(chinese_name),
-                    DekaReader.gbk_bytes_to_string(expire_start_day),
-                    DekaReader.gbk_bytes_to_string(expire_end_day),
-                    DekaReader.gbk_bytes_to_string(birth_day),
-                    DekaReader.gbk_bytes_to_string(version_number),
-                    DekaReader.gbk_bytes_to_string(department_code),
-                    DekaReader.gbk_bytes_to_string(type_sign),
-                    DekaReader.gbk_bytes_to_string(reserved));
+            ForeignIDCard foreignIDCard = new ForeignIDCard(DekaReaderAdapter.gbk_bytes_to_string(english_name),
+                    DekaReaderAdapter.gbk_bytes_to_string(sex),
+                    DekaReaderAdapter.gbk_bytes_to_string(id_number),
+                    DekaReaderAdapter.gbk_bytes_to_string(citizenship),
+                    DekaReaderAdapter.gbk_bytes_to_string(chinese_name),
+                    DekaReaderAdapter.gbk_bytes_to_string(expire_start_day),
+                    DekaReaderAdapter.gbk_bytes_to_string(expire_end_day),
+                    DekaReaderAdapter.gbk_bytes_to_string(birth_day),
+                    DekaReaderAdapter.gbk_bytes_to_string(version_number),
+                    DekaReaderAdapter.gbk_bytes_to_string(department_code),
+                    DekaReaderAdapter.gbk_bytes_to_string(type_sign),
+                    DekaReaderAdapter.gbk_bytes_to_string(reserved));
             log.info("foreigner id card info: {}", foreignIDCard.toJson().toString());
             exitDevice(handle);
             return foreignIDCard;
@@ -239,7 +240,7 @@ public class DekaService extends AnnotationDrivenHandler {
     @DeviceOperation(DeviceType = "IDCard", ProcessCommand = "cardExists")
     public boolean IdCardExists() {
         // 判断是否插卡
-        status = dekaReader.dc_find_i_d(handle);
+        status = dekaReaderAdapter.dc_find_i_d(handle);
         return status == 0;
     }
 

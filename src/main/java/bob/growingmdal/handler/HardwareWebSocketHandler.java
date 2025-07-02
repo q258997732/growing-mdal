@@ -10,7 +10,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
-import org.springframework.core.task.TaskExecutor;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -29,7 +28,6 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
         sendToClient(event.getSession(), event.getResult());
     }
 
-    private TaskExecutor messageTaskExecutor;
     private static final CopyOnWriteArrayList<WebSocketSession> sessions = new CopyOnWriteArrayList<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final CommandDispatcherService dispatcher;
@@ -75,16 +73,17 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
                 if (command.getDeviceType() == null || command.getDeviceType().isBlank()) {
                     throw new IllegalArgumentException("Missing required field: deviceType");
                 }
-
                 if (command.getProcessCommand() == null || command.getProcessCommand().isBlank()) {
                     throw new IllegalArgumentException("Missing required field: processCommand");
                 }
+
                 command.setSession(session);
                 Object result = dispatcher.dispatch(command);
                 if (result != null)
                     sendToClient(session, result.toString());
                 else
                     sendToClient(session, "fail");
+
             } catch (Exception e) {
                 log.debug("Failed to process message: {}", payload, e);
                 sendError(session, "INVALID_COMMAND",
@@ -160,6 +159,10 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
         } catch (IOException e) {
             return false;
         }
+    }
+
+    private boolean isCameraCommand(DeviceCommand command){
+        return command.getProcessCommand().equals("Camera");
     }
 
 }
