@@ -7,37 +7,34 @@ import java.io.UnsupportedEncodingException;
 /**
  * @brief Deka 读卡器接口，注意返回结果为UTF_16LE编码格式
  */
-public interface DekaReader {
-
+public interface DekaReaderAdapter {
     short PORT_USB = 100;  // 新增常量定义
     int BAUD = 115200;  // 波特率,串口才需要
-    int PORT_COM1 = 0;
-    int PORT_COM2 = 1;
 
     /**
      * 加载DLL
      *
      * @return 加载结果
      */
-    static DekaReader load() {
+    static DekaReaderAdapter load() {
         return NativeLibraryLoader.load(
-                DekaReader.class,
+                DekaReaderAdapter.class,
                 "dcrf32.dll",
                 "/lib/deka_T10-MX4_x64/"
         );
     }
 
-    static DekaReader load(String dllName, String resourcePath) {
+    static DekaReaderAdapter load(String dllName, String resourcePath) {
         return NativeLibraryLoader.load(
-                DekaReader.class,
+                DekaReaderAdapter.class,
                 dllName,
                 resourcePath
         );
     }
 
     /**
-     * @brief  库入口。
-     * @par    说明：
+     * @brief 库入口。
+     * @par 说明：
      * 可以获取或设置一些库相关参数，此接口可不掉用，如需调用必须放在所有其它接口之前调用。
      * @param[in] flag 标志，用于决定 @a context 的类型和含义。
      * @n 0 - 表示获取库版本， @a context 类型为char *，请至少分配64个字节。
@@ -56,11 +53,11 @@ public interface DekaReader {
     int dc_init(short port, int baud);
 
     /**
-     * @brief  关闭设备。
-     * @par    说明：
+     * @return <0表示失败，==0表示成功。
+     * @brief 关闭设备。
+     * @par 说明：
      * 关闭设备的通讯和释放资源。
      * @param[in] icdev 设备标识符。
-     * @return <0表示失败，==0表示成功。
      */
     short dc_exit(int handle);
 
@@ -154,12 +151,12 @@ public interface DekaReader {
     short dc_SelfServiceDeviceSensorStatus(int handle, byte[] value);
 
     /**
-     * @brief  检测多卡状态。
-     * @par    说明：
+     * @return <0表示失败，==0表示成功，==1表示无卡，==2表示存在多张卡。
+     * @brief 检测多卡状态。
+     * @par 说明：
      * 判断是否为多张卡，是否为Type A或Type B卡。
      * @param[in] icdev 设备标识符。
      * @param[out] type 卡类型，0x0A表示Type A卡，0x0B表示Type B卡。
-     * @return <0表示失败，==0表示成功，==1表示无卡，==2表示存在多张卡。
      */
     short dc_MulticardStatus(int handle, byte[] value);
 
@@ -186,8 +183,9 @@ public interface DekaReader {
                               byte[] photo, int[] fingerprint_len, byte[] fingerprint, int[] extra_len, byte[] extra);
 
     /**
-     * @brief  解析文字信息。
-     * @par    说明：
+     * @return <0表示失败，==0表示成功。
+     * @brief 解析文字信息。
+     * @par 说明：
      * 解析中国人居民身份证文字信息，获取相应的条目。
      * @param[in] icdev 设备标识符。
      * @param[in] charset 获取条目将采用的字符集，0表示GBK，1表示UCS-2LE，2表示UTF-8。
@@ -203,15 +201,15 @@ public interface DekaReader {
      * @param[out] expire_start_day 证件签发日期，请至少分配36个字节。
      * @param[out] expire_end_day 证件终止日期，请至少分配36个字节。
      * @param[out] reserved 预留项，请至少分配76个字节。
-     * @return <0表示失败，==0表示成功。
      */
     short dc_ParseTextInfo(int handle, int charset, int info_len, byte[] info, byte[] name,
                            byte[] sex, byte[] nation, byte[] birth_day, byte[] address, byte[] id_number,
                            byte[] department, byte[] expire_start_day, byte[] expire_end_day, byte[] reserved);
 
     /**
-     * @brief  解析文字信息。
-     * @par    说明：
+     * @return <0表示失败，==0表示成功。
+     * @brief 解析文字信息。
+     * @par 说明：
      * 解析外国人永久居留证（2017版）文字信息，获取相应的条目。
      * @param[in] icdev 设备标识符。
      * @param[in] charset 获取条目将采用的字符集，0表示GBK，1表示UCS-2LE，2表示UTF-8。
@@ -229,7 +227,6 @@ public interface DekaReader {
      * @param[out] department_code 当次申请受理机关代码，请至少分配20个字节。
      * @param[out] type_sign 证件类型标识，请至少分配8个字节。
      * @param[out] reserved 预留项，请至少分配16个字节。
-     * @return <0表示失败，==0表示成功。
      */
     short dc_ParseTextInfoForForeigner(int handle, int charset, int info_len, byte[] info,
                                        byte[] english_name, byte[] sex, byte[] id_number, byte[] citizenship, byte[] chinese_name,
@@ -237,8 +234,9 @@ public interface DekaReader {
                                        byte[] department_code, byte[] type_sign, byte[] reserved);
 
     /**
-     * @brief  解析相片信息。
-     * @par    说明：
+     * @return <0表示失败，==0表示成功。
+     * @brief 解析相片信息。
+     * @par 说明：
      * 解析相片信息，通过公安部相片解码库还原相片图像数据。
      * @param[in] icdev 设备标识符。
      * @param[in] type 相片图像数据的格式，0表示BMP文件，1表示BMP缓存，2表示BMP Base64字符串。
@@ -252,7 +250,6 @@ public interface DekaReader {
      * @n BMP文件 - 传入文件名，请确保有写入的权限。
      * @n BMP缓存 - 返回的相片图像数据，请至少分配65536个字节。
      * @n BMP Base64字符串 - 返回的相片图像数据Base64字符串，请至少分配65536个字节。
-     * @return <0表示失败，==0表示成功。
      */
     short dc_ParsePhotoInfo(int handle, int type, int info_len, byte[] info, int[] photo_len,
                             byte[] photo);
@@ -264,21 +261,21 @@ public interface DekaReader {
     short dc_Scan2DBarcodeExit(int handle);
 
     /**
-     * @brief  生成相片图像文件。
-     * @par    说明：
+     * @return <0表示失败，==0表示成功。
+     * @brief 生成相片图像文件。
+     * @par 说明：
      * 使用内部保存的相片原始数据，通过调用公安部相片解码库解码生成相片图像文件。
      * @param[in] idhandle 身份证标识符。
      * @param[in] FileName 文件名，请确保有写入的权限。
-     * @return <0表示失败，==0表示成功。
      */
     short dc_i_d_query_photo_file(int handle, String fileName);
 
     /**
-     * @brief  查找身份证。
-     * @par    说明：
+     * @return <0表示失败或不存在，==0表示存在。
+     * @brief 查找身份证。
+     * @par 说明：
      * 以读取数据方式查找是否有身份证存在于感应区。
      * @param[in] icdev 设备标识符。
-     * @return <0表示失败或不存在，==0表示存在。
      */
     short dc_find_i_d(int handle);
 
@@ -290,7 +287,8 @@ public interface DekaReader {
         }
         return i;
     }
-    public static String gbk_bytes_to_string(byte[] data) {
+
+    public static String gbk_bytes_to_string(byte[] data) throws UnsupportedEncodingException {
         int i;
         String s = "";
 
@@ -302,25 +300,17 @@ public interface DekaReader {
 
         byte[] temp = new byte[i];
         System.arraycopy(data, 0, temp, 0, temp.length);
-
-        try {
-            s = new String(temp, "GBK");
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
+        s = new String(temp, "GBK");
 
         return s;
     }
-    public static byte[] string_to_gbk_bytes(String data) {
+
+    public static byte[] string_to_gbk_bytes(String data) throws UnsupportedEncodingException {
         int i = 0;
         byte[] s = null;
 
-        try {
-            s = data.getBytes("GBK");
-            i = s.length;
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
+        s = data.getBytes("GBK");
+        i = s.length;
 
         byte[] temp = new byte[i + 1];
         System.arraycopy(s, 0, temp, 0, i);
@@ -328,6 +318,7 @@ public interface DekaReader {
 
         return temp;
     }
+
     public static void print_bytes(byte[] b, int length) {
         for (int i = 0; i < length; ++i) {
             String hex = Integer.toHexString(b[i] & 0xFF);
@@ -339,7 +330,6 @@ public interface DekaReader {
     }
 
     /**
-     *
      * @param res 接口返回状态码
      * @return true: 成功，false: 失败
      */

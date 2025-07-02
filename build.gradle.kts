@@ -1,5 +1,3 @@
-
-
 plugins {
     java
     id("org.springframework.boot") version "3.5.0"
@@ -22,10 +20,13 @@ configurations {
 }
 
 repositories {
+    // 阿里云镜像（首选）
+    maven { url = uri("https://maven.aliyun.com/repository/public/") }
+    // 清华大学镜像（备用）
+    maven { url = uri("https://mirrors.tuna.tsinghua.edu.cn/maven/") }
     mavenCentral()
-    maven {
-        url = uri("https://repository.jboss.org/maven2/")
-    }
+    // jboss镜像
+    maven { url = uri("https://repository.jboss.org/maven2/") }
 }
 
 dependencies {
@@ -54,6 +55,8 @@ dependencies {
     implementation("com.sun.media:jai-codec:1.1.3")
     // Printer
     implementation("org.apache.pdfbox:pdfbox:3.0.1")
+    // JavaCV + FFmpeg
+    implementation("org.bytedeco:javacv-platform:1.5.9")
 
 }
 
