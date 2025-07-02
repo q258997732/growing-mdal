@@ -1,6 +1,7 @@
 package bob.growingmdal.service;
 
 import bob.growingmdal.annotation.DeviceOperation;
+import bob.growingmdal.config.WebSocketSessionManager;
 import bob.growingmdal.core.command.DeviceCommand;
 import bob.growingmdal.core.dispatcher.AnnotationDrivenHandler;
 import bob.growingmdal.entity.OperationResultEvent;
