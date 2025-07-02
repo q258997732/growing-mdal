@@ -3,7 +3,7 @@ package bob.growingmdal.handler;
 import bob.growingmdal.core.command.DeviceCommand;
 import bob.growingmdal.entity.OperationResultEvent;
 import bob.growingmdal.service.CommandDispatcherService;
-import bob.growingmdal.service.WebSocketSessionManager;
+import bob.growingmdal.config.WebSocketSessionManager;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
