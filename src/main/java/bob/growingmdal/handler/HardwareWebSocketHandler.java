@@ -50,6 +50,7 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
     protected void handleTextMessage(WebSocketSession session, TextMessage message) {
         Thread thread = new Thread(() -> {
             String payload = message.getPayload();
+
             if (!isValidJson(payload)) {
                 sendError(session, "INVALID_JSON", "Payload is not valid JSON");
                 return;
@@ -78,6 +79,12 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
                 }
 
                 command.setSession(session);
+
+                // 判断是否摄像头命令
+                if(isCameraCommand( command)){
+                    return;
+                }
+
                 Object result = dispatcher.dispatch(command);
                 if (result != null)
                     sendToClient(session, result.toString());
