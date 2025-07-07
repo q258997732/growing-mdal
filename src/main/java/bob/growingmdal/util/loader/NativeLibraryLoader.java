@@ -1,6 +1,8 @@
 package bob.growingmdal.util.loader;
 
 import jnr.ffi.LibraryLoader;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,6 +13,7 @@ import java.nio.file.StandardCopyOption;
 /**
  * JNR 本地库加载工具类
  */
+@Slf4j
 public class NativeLibraryLoader {
 
     /**
@@ -27,7 +30,7 @@ public class NativeLibraryLoader {
             // 2. 设置JNR库搜索路径
             addLibraryPath(tempFile.getParent());
 
-            System.out.println("JNR library search path: " + System.getProperty("jnr.ffi.library.path"));
+            log.info("JNR library search path: {}" , System.getProperty("jnr.ffi.library.path"));
 
             // 3. 加载库并返回接口实例
             return LibraryLoader.create(interfaceClass)
@@ -38,7 +41,7 @@ public class NativeLibraryLoader {
     }
 
     private static Path extractLibrary(String libName, String resourcePath) throws IOException {
-        System.out.println("Loading library: " + resourcePath + libName);
+        log.info("Loading library: {}" , resourcePath + libName);
         InputStream is = io.netty.util.internal.NativeLibraryLoader.class.getResourceAsStream(resourcePath + libName);
         if (is == null) {
             throw new IOException("Resource not found: " + resourcePath + libName);
