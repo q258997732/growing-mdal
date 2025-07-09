@@ -5,6 +5,8 @@ import bob.growingmdal.core.command.DeviceCommand;
 import bob.growingmdal.core.dispatcher.AnnotationDrivenHandler;
 import bob.growingmdal.core.exception.PreOperationException;
 import bob.growingmdal.entity.OperationResultEvent;
+import bob.growingmdal.entity.TimeSortedBufferQueue;
+import bob.growingmdal.entity.TimestampedBuffer;
 import bob.growingmdal.entity.response.NantianCameraResponse;
 import bob.growingmdal.util.ZZWsResponseParser;
 import jakarta.annotation.PostConstruct;
@@ -19,7 +21,10 @@ import org.springframework.stereotype.Service;
 
 import java.net.URI;
 import java.nio.ByteBuffer;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayDeque;
+import java.util.Base64;
 import java.util.Iterator;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -33,11 +38,12 @@ public class NantianCameraService extends AnnotationDrivenHandler {
     private ApplicationEventPublisher eventPublisher;
 
     @Getter
-    private final ArrayDeque<ByteBuffer> binaryQueue = new ArrayDeque<>();
+    TimeSortedBufferQueue binaryQueue = new TimeSortedBufferQueue();
     @Getter
     private final ArrayDeque<String> messageQueue = new ArrayDeque<>();
     @Getter
-    private final AtomicBoolean videoCollect = new AtomicBoolean(false);
+    private final AtomicBoolean videoCollect = new AtomicBoolean(true);
+    private final AtomicBoolean getVideo = new AtomicBoolean(true);
     private final AtomicBoolean getFaceStart = new AtomicBoolean(false);
     private final CountDownLatch messageLatch = new CountDownLatch(1);
     private volatile CountDownLatch binaryLatch = new CountDownLatch(1);
@@ -55,7 +61,10 @@ public class NantianCameraService extends AnnotationDrivenHandler {
     private String cameraUrl;
     @Value("${nantian.camera.response.timeout}")
     private int responseTimeout;
+    @Value("${nantian.camera.video.time}")
+    private int videoTime;
     private boolean cameraOpen = false;
+    private Instant lastGetVidoTime;
 
     @PostConstruct
     public void connect() {
@@ -89,7 +98,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
     @OnMessage
     public void onMessage(ByteBuffer bytes, Session session) {
         if (videoCollect.get()) {
-            log.info("Received BINARY message, length: {}", bytes.remaining());
+//            log.info("Received BINARY message, length: {}", bytes.remaining());
             binaryQueue.add(bytes);
         } else {
 //        try {
@@ -137,6 +146,18 @@ public class NantianCameraService extends AnnotationDrivenHandler {
             Thread.sleep(1000);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    // 发送byte
+    public void sendBinary(ByteBuffer byteBuffer) {
+        try {
+            if (session != null && session.isOpen()) {
+                session.getBasicRemote().sendBinary(byteBuffer);
+                log.info("Sent binary: {}", byteBuffer);
+            }
+        } catch (Exception e) {
+            log.error("Failed to send byteBuffer", e);
         }
     }
 
@@ -489,6 +510,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
             return new NantianCameraResponse(200, "Camera not open", "");
         }
         NantianCameraResponse result = null;
+        cameraOpen = false;
         try {
             result = closeVideo();
             if (!result.isSuccess()) {
@@ -514,8 +536,6 @@ public class NantianCameraService extends AnnotationDrivenHandler {
             if (!result.isSuccess()) {
                 throw new PreOperationException("Deinit face mgr failed");
             }
-
-            cameraOpen = false;
         } catch (PreOperationException e) {
             return new NantianCameraResponse(500, "Pre Operation fail", e.getMessage());
         }
@@ -530,12 +550,15 @@ public class NantianCameraService extends AnnotationDrivenHandler {
      */
     @DeviceOperation(DeviceType = "Camera", ProcessCommand = "GetFaceTempl")
     public NantianCameraResponse getFaceTempl(DeviceCommand command) {
+        NantianCameraResponse result = null;
         if (!getFaceStart.get()) {
             String message = "GetFaceTempl@2";
+            result = sendMessageGetResponse(message,responseTimeout);
+            lastGetVidoTime = Instant.now();
             // 开启新线程执行
             new Thread(() -> {
                 // 判断是否已经开启任务
-                while (!getFaceStart.get()) {
+                while (getFaceStart.get()) {
                     synchronized (messageQueue) {
                         Iterator<String> iterator = messageQueue.iterator();
                         while (iterator.hasNext()) {
@@ -557,15 +580,49 @@ public class NantianCameraService extends AnnotationDrivenHandler {
 
             }).start();
 
-            return sendMessageGetResponse(message, responseTimeout);
+            return result;
         } else {
             return new NantianCameraResponse(500, "GetFaceTempl already start", "");
         }
     }
 
+    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StartGetVideo")
+    public NantianCameraResponse startGetVideo(DeviceCommand command) {
+        if(!cameraOpen){
+            return new NantianCameraResponse(500, "Camera not open", "");
+        }
+        lastGetVidoTime = Instant.now();
+        if(!getVideo.get()){
+            getVideo.set(true);
+        }
+        new Thread(() -> {
+            while(getVideo.get()){
+                Instant end = lastGetVidoTime.plus(Duration.ofSeconds(videoTime));
+                if(Instant.now().isAfter(end)){
+                    getVideo.set(false);
+                }
+                PriorityBlockingQueue<TimestampedBuffer> tmp = binaryQueue.getBetweenAndRemove(lastGetVidoTime,end);
+                tmp.forEach(tb -> {
+                    String base64Str = Base64.getEncoder().encodeToString(tb.getBuffer().array());
+                    command.setTransferData(base64Str);
+                    performOperation(command);
+                });
+            }
+            getVideo.set(false);
+
+        }).start();
+        return new NantianCameraResponse(200, "Get Video start", "");
+    }
+
+    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StopGetVideo")
+    public String stopGetVideo() {
+        getVideo.set(false);
+        return "Stop Get Video";
+    }
+
     @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StopGetFaceTempl")
     public String stopGetFaceTempl() {
-        getFaceStart.set(true);
+        getFaceStart.set(false);
         return "StopGetFaceTempl success . ";
     }
 
