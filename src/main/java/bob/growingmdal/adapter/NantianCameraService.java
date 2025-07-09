@@ -44,7 +44,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
     @Getter
     private final AtomicBoolean videoCollect = new AtomicBoolean(true);
     private final AtomicBoolean getVideo = new AtomicBoolean(true);
-    private final AtomicBoolean getFaceStart = new AtomicBoolean(false);
+    private final AtomicBoolean getFaceStart = new AtomicBoolean(true);
     private final CountDownLatch messageLatch = new CountDownLatch(1);
     private volatile CountDownLatch binaryLatch = new CountDownLatch(1);
     private final ScheduledExecutorService cleaner = Executors.newSingleThreadScheduledExecutor();
@@ -551,57 +551,56 @@ public class NantianCameraService extends AnnotationDrivenHandler {
     @DeviceOperation(DeviceType = "Camera", ProcessCommand = "GetFaceTempl")
     public NantianCameraResponse getFaceTempl(DeviceCommand command) {
         NantianCameraResponse result = null;
-        if (!getFaceStart.get()) {
-            String message = "GetFaceTempl@2";
-            result = sendMessageGetResponse(message,responseTimeout);
-            lastGetVidoTime = Instant.now();
-            // 开启新线程执行
-            new Thread(() -> {
-                // 判断是否已经开启任务
-                while (getFaceStart.get()) {
-                    synchronized (messageQueue) {
-                        Iterator<String> iterator = messageQueue.iterator();
-                        while (iterator.hasNext()) {
-                            String current = iterator.next();
-                            if (current.contains("FaceResultEvent")) {
-                                log.info("人脸识别结果: {}", ZZWsResponseParser.parseResponse(current));
-                                command.setTransferData(ZZWsResponseParser.parseResponse(current));
-                                performOperation(command);
-                                iterator.remove();
-                            }
-                        }
-                    }
-                    try {
-                        Thread.sleep(100); // 添加休眠避免过度消耗CPU
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
-                }
-
-            }).start();
-
-            return result;
-        } else {
+        if (getFaceStart.get()) {
             return new NantianCameraResponse(500, "GetFaceTempl already start", "");
         }
+        String message = "GetFaceTempl@2";
+        result = sendMessageGetResponse(message, responseTimeout);
+        // 开启新线程执行
+        new Thread(() -> {
+            // 判断是否已经开启任务
+            while (getFaceStart.get()) {
+                synchronized (messageQueue) {
+                    Iterator<String> iterator = messageQueue.iterator();
+                    while (iterator.hasNext()) {
+                        String current = iterator.next();
+                        if (current.contains("FaceResultEvent")) {
+                            log.info("人脸识别结果: {}", ZZWsResponseParser.parseResponse(current));
+                            command.setTransferData(ZZWsResponseParser.parseResponse(current));
+                            performOperation(command);
+                            iterator.remove();
+                        }
+                    }
+                }
+                try {
+                    Thread.sleep(100); // 添加休眠避免过度消耗CPU
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+
+        }).start();
+
+        return result;
     }
+
 
     @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StartGetVideo")
     public NantianCameraResponse startGetVideo(DeviceCommand command) {
-        if(!cameraOpen){
+        if (!cameraOpen) {
             return new NantianCameraResponse(500, "Camera not open", "");
         }
         lastGetVidoTime = Instant.now();
-        if(!getVideo.get()){
+        if (!getVideo.get()) {
             getVideo.set(true);
         }
         new Thread(() -> {
-            while(getVideo.get()){
+            while (getVideo.get()) {
                 Instant end = lastGetVidoTime.plus(Duration.ofSeconds(videoTime));
-                if(Instant.now().isAfter(end)){
+                if (Instant.now().isAfter(end)) {
                     getVideo.set(false);
                 }
-                PriorityBlockingQueue<TimestampedBuffer> tmp = binaryQueue.getBetweenAndRemove(lastGetVidoTime,end);
+                PriorityBlockingQueue<TimestampedBuffer> tmp = binaryQueue.getBetweenAndRemove(lastGetVidoTime, end);
                 tmp.forEach(tb -> {
                     String base64Str = Base64.getEncoder().encodeToString(tb.getBuffer().array());
                     command.setTransferData(base64Str);
