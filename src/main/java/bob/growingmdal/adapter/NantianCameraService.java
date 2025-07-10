@@ -44,7 +44,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
     @Getter
     private final AtomicBoolean videoCollect = new AtomicBoolean(true);
     private final AtomicBoolean getVideo = new AtomicBoolean(true);
-    private final AtomicBoolean getFaceStart = new AtomicBoolean(true);
+    private final AtomicBoolean getFaceStart = new AtomicBoolean(false);
     private final CountDownLatch messageLatch = new CountDownLatch(1);
     private volatile CountDownLatch binaryLatch = new CountDownLatch(1);
     private final ScheduledExecutorService cleaner = Executors.newSingleThreadScheduledExecutor();
@@ -556,6 +556,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
         }
         String message = "GetFaceTempl@2";
         result = sendMessageGetResponse(message, responseTimeout);
+        getFaceStart.set(true);
         // 开启新线程执行
         new Thread(() -> {
             // 判断是否已经开启任务
@@ -584,6 +585,11 @@ public class NantianCameraService extends AnnotationDrivenHandler {
         return result;
     }
 
+    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StopGetFaceTempl")
+    public String stopGetFaceTempl() {
+        getFaceStart.set(false);
+        return "StopGetFaceTempl success . ";
+    }
 
     @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StartGetVideo")
     public NantianCameraResponse startGetVideo(DeviceCommand command) {
@@ -617,12 +623,6 @@ public class NantianCameraService extends AnnotationDrivenHandler {
     public String stopGetVideo() {
         getVideo.set(false);
         return "Stop Get Video";
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StopGetFaceTempl")
-    public String stopGetFaceTempl() {
-        getFaceStart.set(false);
-        return "StopGetFaceTempl success . ";
     }
 
     /**
