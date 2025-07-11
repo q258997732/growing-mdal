@@ -233,6 +233,12 @@ public interface DekaReaderAdapter {
                                        byte[] expire_start_day, byte[] expire_end_day, byte[] birth_day, byte[] version_number,
                                        byte[] department_code, byte[] type_sign, byte[] reserved);
 
+
+    short dc_ParseTextInfoForHkMoTw(int handle, int charset, int info_len, byte[] info,
+                                    byte[] name, byte[] sex, byte[] reserved, byte[] birth_day, byte[] address, byte[] id_number,
+                                    byte[] department, byte[] expire_start_day, byte[] expire_end_day, byte[] pass_number,
+                                    byte[] sign_count, byte[] reserved2, byte[] type_sign, byte[] reserved3);
+
     /**
      * @return <0表示失败，==0表示成功。
      * @brief 解析相片信息。

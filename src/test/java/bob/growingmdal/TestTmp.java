@@ -2,6 +2,7 @@ package bob.growingmdal;
 
 import bob.growingmdal.adapter.DekaReaderAdapter;
 
+import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.time.Duration;
 import java.time.Instant;
@@ -10,14 +11,10 @@ import static java.lang.Thread.sleep;
 
 public class TestTmp {
     public static void main(String[] args) throws InterruptedException, UnsupportedEncodingException {
-        byte[] version = new byte[64];
-        DekaReaderAdapter dekaReaderAdapter = DekaReaderAdapter.load();
-
-
-        dekaReaderAdapter.LibMain(0, version);
-        System.out.println("dcrf32 version: " + DekaReaderAdapter.gbk_bytes_to_string(version));
-
-
+        String currentPath = System.getProperty("user.dir");
+        System.out.println("currentPath: " + currentPath);
+        String libPath = currentPath + File.separator + "src" + File.separator + "main" + File.separator + "resources" + File.separator + "lib" + File.separator + "deka_T10-MX4_x64";
+        System.out.println("libPath: " + libPath);
 
     }
 }
