@@ -131,6 +131,7 @@ public class DomesticIDCard implements IDCard {
             json.put("expireStartDay", expireStartDay);
             json.put("expireEndDay", expireEndDay);
             json.put("reserved", reserved);
+            json.put("photo", photo);
         } catch (Exception e) {
             log.error("DomesticIDCard toJson error: {}", e.getMessage());
             return null;
