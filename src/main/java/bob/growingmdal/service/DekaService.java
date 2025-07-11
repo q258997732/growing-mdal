@@ -213,7 +213,7 @@ public class DekaService extends AnnotationDrivenHandler {
             log.info("domestic id card info: {}", domesticIDCard.toJson().toString());
 
             // 转换照片信息
-            status = dekaReaderAdapter.dc_ParsePhotoInfo(handle, 2, photo_len[0], photo, null, DekaReaderAdapter.string_to_gbk_bytes("tmp.bmp"));
+            status = dekaReaderAdapter.dc_ParsePhotoInfo(handle, 0, photo_len[0], photo, null, DekaReaderAdapter.string_to_gbk_bytes("tmp.bmp"));
             if (!DekaReaderAdapter.isSuccess(status)) {
                 log.error("parse photo info failed . status = {}", status);
                 status = dekaReaderAdapter.dc_exit(handle);
