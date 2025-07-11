@@ -566,7 +566,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
                     while (iterator.hasNext()) {
                         String current = iterator.next();
                         if (current.contains("FaceResultEvent")) {
-                            log.info("人脸识别结果: {}", ZZWsResponseParser.parseResponse(current));
+                            log.debug("人脸识别结果: {}", ZZWsResponseParser.parseResponse(current));
                             command.setTransferData(ZZWsResponseParser.parseResponse(current));
                             performOperation(command);
                             iterator.remove();
