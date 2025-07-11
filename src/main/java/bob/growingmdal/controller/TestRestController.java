@@ -1,6 +1,6 @@
 package bob.growingmdal.controller;
 
-import bob.growingmdal.adapter.NantianCameraService;
+import bob.growingmdal.service.NantianCameraService;
 import bob.growingmdal.entity.response.NantianCameraResponse;
 import bob.growingmdal.entity.response.ResponseBean;
 import bob.growingmdal.entity.response.SuccessResponseBean;

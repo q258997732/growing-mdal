@@ -29,4 +29,8 @@ public class Base64Util {
         }
     }
 
+    public static String convertBmpToBase64Prefix(String filePath){
+        return "data:image/bmp;base64," + convertBmpToBase64(filePath);
+    }
+
 }
