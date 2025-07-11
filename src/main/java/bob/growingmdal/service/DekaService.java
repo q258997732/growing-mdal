@@ -219,7 +219,7 @@ public class DekaService extends AnnotationDrivenHandler {
                 status = dekaReaderAdapter.dc_exit(handle);
                 return String.format("parse photo info failed . status = %s, exit device ...", status);
             }
-            domesticIDCard.setPhoto(Base64Util.convertBmpToBase64(workDir + "tmp.bmp"));
+            domesticIDCard.setPhoto(Base64Util.convertBmpToBase64(workDir + "\tmp.bmp"));
 
             result = domesticIDCard;
         } else if (type == 1) {
