@@ -46,6 +46,7 @@ public class ZZWsResponseParser {
 
     /**
      * 解析WebService返回结果并生成可读描述
+     *
      * @param response 原始响应字符串（格式：命令名#参数1#参数2...）
      * @return 可读的描述信息
      */
@@ -168,15 +169,19 @@ public class ZZWsResponseParser {
                 return parseGetBase64(params);
 
             // 人脸识别相关
+            case "FaceDetectEvent":
+                return parseFaceDetectEvent(params);
             case "FaceDetectExEvent":
                 return parseFaceDetectExEvent(params);
             case "FaceResultEvent":
-                return parseFaceResultEvent(params,data);
+                return parseFaceResultEvent(params, data);
             case "GetFaceTemp1FromBase64":
                 return parseGetFaceTemp1FromBase64(params);
             case "CompareFaceEx":
                 return parseCompareFaceEx(params);
 
+            case "GetFaceTemplFromBase64":
+                return parseGetFaceTemplFromBase64(params);
             // 默认处理
             default:
                 return parseGenericResponse(command, params);
@@ -184,7 +189,7 @@ public class ZZWsResponseParser {
     }
 
     public static String getCaptureBase64(String response) {
-        if(response.split("#").length>1){
+        if (response.split("#").length > 1) {
             return response.split("#")[1];
         }
         return null;
@@ -440,11 +445,20 @@ public class ZZWsResponseParser {
 
         String resultDesc;
         switch (resultCode) {
-            case 0: resultDesc = "不是活体"; break;
-            case 1: resultDesc = "未检测到图像"; break;
-            case 2: resultDesc = "未检测到人脸"; break;
-            case 3: resultDesc = "检测成功"; break;
-            default: resultDesc = "未知状态(" + resultCode + ")";
+            case 0:
+                resultDesc = "不是活体";
+                break;
+            case 1:
+                resultDesc = "未检测到图像";
+                break;
+            case 2:
+                resultDesc = "未检测到人脸";
+                break;
+            case 3:
+                resultDesc = "检测成功";
+                break;
+            default:
+                resultDesc = "未知状态(" + resultCode + ")";
         }
 
         if (resultCode == 3 && parts.length >= 2) {
@@ -458,7 +472,39 @@ public class ZZWsResponseParser {
         return "人脸检测结果: " + resultDesc;
     }
 
-    private static String parseFaceResultEvent(String params,String data) {
+    private static String parseFaceDetectEvent(String params) {
+        String[] parts = params.split("#");
+        if (parts.length < 1) {
+            return "参数不足";
+        }
+        int resultCode;
+        try {
+            resultCode = Integer.parseInt(parts[0]);
+        } catch (NumberFormatException e) {
+            return "无效结果码";
+        }
+        String resultText;
+        switch (resultCode) {
+            case 0:
+                resultText = "成功";
+                break;
+            case -1:
+                resultText = "匹配特征失败";
+                break;
+            case -2:
+                resultText = "未获取到人脸";
+                break;
+            case -3:
+                resultText = "不是活体";
+                break;
+            default:
+                resultText = "未知错误";
+        }
+        return resultText;
+
+    }
+
+    private static String parseFaceResultEvent(String params, String data) {
         String[] parts = params.split("#");
         if (parts.length < 1) {
             return "识别失败";
@@ -500,7 +546,8 @@ public class ZZWsResponseParser {
                 return command + ": " + STATUS_DESCRIPTION.get(result);
             }
             return command + ": 返回码=" + result;
-        } catch (NumberFormatException ignored) {}
+        } catch (NumberFormatException ignored) {
+        }
 
         // 包含多个参数的情况
         if (params.contains("#")) {
@@ -509,6 +556,14 @@ public class ZZWsResponseParser {
         }
 
         return command + ": " + params;
+    }
+
+    private static String parseGetFaceTemplFromBase64(String params){
+        String[] parts = params.split("#");
+        if (parts.length < 1) {
+            return "获取失败";
+        }
+        return "成功，特征码为：" + parts[0];
     }
 
     // 单元测试示例
