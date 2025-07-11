@@ -1,4 +1,4 @@
-package bob.growingmdal.adapter;
+package bob.growingmdal.service;
 
 import bob.growingmdal.annotation.DeviceOperation;
 import bob.growingmdal.core.command.DeviceCommand;

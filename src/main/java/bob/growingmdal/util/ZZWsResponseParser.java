@@ -458,18 +458,21 @@ public class ZZWsResponseParser {
     }
 
     private static String parseFaceResultEvent(String params) {
-        String res = "";
+        String res = "null";
         String[] parts = params.split("#");
         if (parts.length < 1) {
-            res = "识别失败";
+            return "识别失败";
+        }
+        if (parts.length >= 2){
+            res = parts[1];
         }
         int resultCode = -99;
         try {
             resultCode = Integer.parseInt(parts[0]);
         } catch (NumberFormatException e) {
-            res = " 无效结果码";
+            return "无效结果码";
         }
-        return FACE_DETECT_RESULT_DESCRIPTION.getOrDefault(resultCode, "未知结果(" + resultCode + ")");
+        return FACE_DETECT_RESULT_DESCRIPTION.getOrDefault(resultCode, "未知结果(" + resultCode + ")") + "特征码 ：" + res;
     }
 
     private static String parseGetFaceTemp1FromBase64(String params) {
