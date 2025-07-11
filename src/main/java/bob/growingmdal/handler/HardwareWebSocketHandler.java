@@ -101,6 +101,11 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void sendError(WebSocketSession session, String errorCode, String errorMessage) {
+        // 添加会话状态检查
+        if (session == null || !session.isOpen()) {
+            return; // 会话已关闭，不再发送错误
+        }
+
         try {
             Map<String, Object> error = Map.of(
                     "error", errorCode,
@@ -116,7 +121,11 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) {
         log.warn("Transport error for session {}: {}", session.getId(), exception.getMessage());
-        sendError(session, "TRANSPORT_ERROR", exception.getMessage());
+
+        // 添加会话状态检查
+        if (session != null && session.isOpen()) {
+            sendError(session, "TRANSPORT_ERROR", exception.getMessage());
+        }
     }
 
     @Override
@@ -166,6 +175,10 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
         } catch (IOException e) {
             return false;
         }
+    }
+
+    public void closeAllSessions() {
+        sessionManager.closeAllSessions();
     }
 
     private boolean isCameraCommand(DeviceCommand command){
