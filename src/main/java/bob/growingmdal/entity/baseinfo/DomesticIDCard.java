@@ -21,6 +21,7 @@ public class DomesticIDCard implements IDCard {
     private String expireStartDay;   // 有效期开始日
     private String expireEndDay;     // 有效期截止日
     private String reserved;         // 保留字段
+    private String photo;           // 照片
 
     // 民族代码映射表
     private static final Map<String, String> NATION_MAP = new HashMap<>() {{

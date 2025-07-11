@@ -8,6 +8,7 @@ import bob.growingmdal.entity.OperationResultEvent;
 import bob.growingmdal.entity.baseinfo.DomesticIDCard;
 import bob.growingmdal.entity.baseinfo.ForeignIDCard;
 import bob.growingmdal.adapter.DekaReaderAdapter;
+import bob.growingmdal.util.Base64Util;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,9 +72,9 @@ public class DekaService extends AnnotationDrivenHandler {
         return handle;
     }
 
-    private boolean setWorkDir(String dir){
+    private boolean setWorkDir(String dir) {
         try {
-            dekaReaderAdapter.LibMain(1,DekaReaderAdapter.string_to_gbk_bytes(dir));
+            dekaReaderAdapter.LibMain(1, DekaReaderAdapter.string_to_gbk_bytes(dir));
             log.debug("Set deka workdir success. {}", dir);
         } catch (UnsupportedEncodingException e) {
             log.error("Set deka workdir failed. {}", e.getMessage());
@@ -101,6 +102,8 @@ public class DekaService extends AnnotationDrivenHandler {
      */
     @DeviceOperation(DeviceType = "IDCard", ProcessCommand = "getIDCardInfo")
     public Object getIDCardInfo(DeviceCommand command) throws UnsupportedEncodingException {
+
+        Object result = null;
 
         if (!isCheckingCard.compareAndSet(false, true)) {
             log.warn("Another ID card check is already in progress");
@@ -208,8 +211,17 @@ public class DekaService extends AnnotationDrivenHandler {
                     DekaReaderAdapter.gbk_bytes_to_string(reserved));
 
             log.info("domestic id card info: {}", domesticIDCard.toJson().toString());
-            exitDevice(handle);
-            return domesticIDCard;
+
+            // 转换照片信息
+            status = dekaReaderAdapter.dc_ParsePhotoInfo(handle, 2, photo_len[0], photo, null, DekaReaderAdapter.string_to_gbk_bytes("tmp.bmp"));
+            if (!DekaReaderAdapter.isSuccess(status)) {
+                log.error("parse photo info failed . status = {}", status);
+                status = dekaReaderAdapter.dc_exit(handle);
+                return String.format("parse photo info failed . status = %s, exit device ...", status);
+            }
+            domesticIDCard.setPhoto(Base64Util.convertBmpToBase64(workDir + "tmp.bmp"));
+
+            result = domesticIDCard;
         } else if (type == 1) {
             log.info("read foreign id card .");
             byte[] english_name = new byte[244];
@@ -243,25 +255,14 @@ public class DekaService extends AnnotationDrivenHandler {
                     DekaReaderAdapter.gbk_bytes_to_string(type_sign),
                     DekaReaderAdapter.gbk_bytes_to_string(reserved));
             log.info("foreigner id card info: {}", foreignIDCard.toJson().toString());
-            exitDevice(handle);
-            return foreignIDCard;
+            result = foreignIDCard;
         } else {
             log.error("unknown id card type . type = {}", type);
         }
 
-        // 转换照片信息
-        log.info("photo length: {}", photo.length);
-        status = dekaReaderAdapter.dc_ParsePhotoInfo(handle, 2, photo_len[0], photo, null, DekaReaderAdapter.string_to_gbk_bytes("tmp.bmp"));
-        log.info("photo : {}", DekaReaderAdapter.gbk_bytes_to_string(photo));
-        if (!DekaReaderAdapter.isSuccess(status)) {
-            log.error("parse photo info failed . status = {}", status);
-            status = dekaReaderAdapter.dc_exit(handle);
-            return String.format("parse photo info failed . status = %s, exit device ...", status);
-        }
-
 
         exitDevice(handle);
-        return null;
+        return result;
 
     }
 
