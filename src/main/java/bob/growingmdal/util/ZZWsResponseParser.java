@@ -61,6 +61,7 @@ public class ZZWsResponseParser {
 
         String command = parts[0];
         String params = parts.length > 1 ? parts[1] : "";
+        String data = parts.length > 2 ? parts[2] : "";
 
         switch (command) {
             // 设备信息命令
@@ -170,7 +171,7 @@ public class ZZWsResponseParser {
             case "FaceDetectExEvent":
                 return parseFaceDetectExEvent(params);
             case "FaceResultEvent":
-                return parseFaceResultEvent(params);
+                return parseFaceResultEvent(params,data);
             case "GetFaceTemp1FromBase64":
                 return parseGetFaceTemp1FromBase64(params);
             case "CompareFaceEx":
@@ -457,14 +458,10 @@ public class ZZWsResponseParser {
         return "人脸检测结果: " + resultDesc;
     }
 
-    private static String parseFaceResultEvent(String params) {
-        String res = "null";
+    private static String parseFaceResultEvent(String params,String data) {
         String[] parts = params.split("#");
         if (parts.length < 1) {
             return "识别失败";
-        }
-        if (parts.length >= 2){
-            res = parts[1];
         }
         int resultCode = -99;
         try {
@@ -472,7 +469,7 @@ public class ZZWsResponseParser {
         } catch (NumberFormatException e) {
             return "无效结果码";
         }
-        return FACE_DETECT_RESULT_DESCRIPTION.getOrDefault(resultCode, "未知结果(" + resultCode + ")") + "特征码 ：" + res;
+        return FACE_DETECT_RESULT_DESCRIPTION.getOrDefault(resultCode, "未知结果(" + resultCode + ")") + " ,特征码 ：" + data;
     }
 
     private static String parseGetFaceTemp1FromBase64(String params) {
