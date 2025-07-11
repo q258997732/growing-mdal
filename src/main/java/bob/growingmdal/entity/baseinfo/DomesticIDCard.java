@@ -115,6 +115,7 @@ public class DomesticIDCard implements IDCard {
                 ", \"expireStartDay\":\"" + expireStartDay + "\"" +
                 ", \"expireEndDay\":\"" + expireEndDay + "\"" +
                 ", \"reserved\":\"" + reserved + "\"" +
+                ", \"photo\":\"" + photo + "\"" +
                 "}";
     }
 
