@@ -563,7 +563,15 @@ public class ZZWsResponseParser {
         if (parts.length < 1) {
             return "获取失败";
         }
-        return "成功，特征码为：" + parts[0];
+        return "成功";
+    }
+
+    public static String getFaceEigenvalueData(String params){
+        String[] parts = params.split("#");
+        if (parts.length < 1) {
+            return "获取失败";
+        }
+        return parts[1];
     }
 
     // 单元测试示例
