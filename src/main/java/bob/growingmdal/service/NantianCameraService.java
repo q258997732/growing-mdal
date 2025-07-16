@@ -227,6 +227,8 @@ public class NantianCameraService extends AnnotationDrivenHandler {
 
         if (message.contains("Capture")) {
             retData = ZZWsResponseParser.getCaptureBase64(response);
+        }else if (message.contains("GetFaceTemplFromBase64")) {
+            retData = ZZWsResponseParser.getFaceEigenvalueData( response);
         }
 
         response = ZZWsResponseParser.parseResponse(response);

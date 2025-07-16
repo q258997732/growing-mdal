@@ -57,6 +57,8 @@ dependencies {
     implementation("org.apache.pdfbox:pdfbox:3.0.1")
     // JavaCV + FFmpeg
     implementation("org.bytedeco:javacv-platform:1.5.9")
+    // SNMP4J
+    implementation("org.snmp4j:snmp4j:3.7.2")
 
 }
 
