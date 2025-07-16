@@ -560,7 +560,7 @@ public class ZZWsResponseParser {
 
     private static String parseGetFaceTemplFromBase64(String params){
         String[] parts = params.split("#");
-        if (parts.length < 2) {
+        if (parts.length < 1) {
             return "获取失败,无返回特征";
         }
         return "成功";
