@@ -560,15 +560,15 @@ public class ZZWsResponseParser {
 
     private static String parseGetFaceTemplFromBase64(String params){
         String[] parts = params.split("#");
-        if (parts.length < 1) {
-            return "获取失败";
+        if (parts.length < 2) {
+            return "获取失败,无返回特征";
         }
         return "成功";
     }
 
     public static String getFaceEigenvalueData(String params){
         String[] parts = params.split("#");
-        if (parts.length < 1) {
+        if (parts.length < 2) {
             return "获取失败";
         }
         return parts[1];
