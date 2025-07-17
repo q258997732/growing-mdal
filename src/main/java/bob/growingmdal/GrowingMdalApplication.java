@@ -9,5 +9,4 @@ public class GrowingMdalApplication {
     public static void main(String[] args) {
         SpringApplication.run(GrowingMdalApplication.class, args);
     }
-
 }

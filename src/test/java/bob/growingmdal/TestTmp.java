@@ -1,20 +1,24 @@
 package bob.growingmdal;
 
-import bob.growingmdal.adapter.DekaReaderAdapter;
+import bob.growingmdal.adapter.LexmarkPrinterAdapter;
+import org.snmp4j.CommunityTarget;
+import org.snmp4j.PDU;
+import org.snmp4j.Snmp;
+import org.snmp4j.TransportMapping;
+import org.snmp4j.event.ResponseEvent;
+import org.snmp4j.mp.SnmpConstants;
+import org.snmp4j.smi.*;
+import org.snmp4j.transport.DefaultUdpTransportMapping;
 
-import java.io.File;
-import java.io.UnsupportedEncodingException;
-import java.time.Duration;
-import java.time.Instant;
+import java.io.IOException;
 
 import static java.lang.Thread.sleep;
 
 public class TestTmp {
-    public static void main(String[] args) throws InterruptedException, UnsupportedEncodingException {
-        String currentPath = System.getProperty("user.dir");
-        System.out.println("currentPath: " + currentPath);
-        String libPath = currentPath + File.separator + "src" + File.separator + "main" + File.separator + "resources" + File.separator + "lib" + File.separator + "deka_T10-MX4_x64";
-        System.out.println("libPath: " + libPath);
-
+    public static void main(String[] args) throws IOException {
+        LexmarkPrinterAdapter lexmarkPrinterAdapter = new LexmarkPrinterAdapter("192.168.107.112", "public");
+        String tmp = lexmarkPrinterAdapter.getPrinterStatus();
+        System.out.println(tmp);
     }
+
 }
