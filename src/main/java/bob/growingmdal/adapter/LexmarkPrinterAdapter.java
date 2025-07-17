@@ -3,14 +3,11 @@ package bob.growingmdal.adapter;
 
 import bob.growingmdal.util.snmp.SnmpUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.snmp4j.Snmp;
 import org.snmp4j.mp.SnmpConstants;
 import org.snmp4j.smi.Variable;
-import org.snmp4j.smi.VariableBinding;
 
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -53,12 +50,32 @@ public class LexmarkPrinterAdapter {
         }
     }
 
-    public String getPrinterStatus() throws IOException {
+    /**
+     * 获取打印状态
+     * @return 异常信息
+     * @throws IOException 报错信息
+     */
+    public String getPrinterErrStatus() throws IOException {
         Variable singleResult = snmpUtil.snmpGetSingle(".1.3.6.1.2.1.25.3.5.1.2.1");
+        return parsePrinterErrStatus(singleResult.toString());
+    }
+
+    public String getPrinterStatus() throws IOException {
+        Variable singleResult = snmpUtil.snmpGetSingle(".1.3.6.1.2.1.25.3.5.1.1.1");
         return parsePrinterStatus(singleResult.toString());
     }
 
     private String parsePrinterStatus(String printerStatus) {
+        return switch (printerStatus) {
+            case "0" -> "其他";
+            case "2" -> "状态未知";
+            case "3" -> "空闲";
+            case "4" -> "预热(处理打印队列或后台程序)";
+            default -> "未知";
+        };
+    }
+
+    private String parsePrinterErrStatus(String printerStatus) {
         // 验证输入格式
         if (!printerStatus.matches("[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}")) {
             return "错误：无效的状态格式，应为XX:XX的16进制形式";

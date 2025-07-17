@@ -34,13 +34,23 @@ public class LexmarkPrinterService extends AnnotationDrivenHandler {
         lexmarkPrinterAdapter = new LexmarkPrinterAdapter(ip, community);
     }
 
+    @DeviceOperation(DeviceType = "Printer", ProcessCommand = "getLexmarkErrStatus")
+    public String getLexmarkErrStatus() {
+        try {
+            return lexmarkPrinterAdapter.getPrinterErrStatus();
+        } catch (IOException e) {
+            log.error("get lexmark printer status error", e);
+            return "error ,"+e.getMessage() ;
+        }
+    }
+
     @DeviceOperation(DeviceType = "Printer", ProcessCommand = "getLexmarkStatus")
     public String getLexmarkStatus() {
         try {
             return lexmarkPrinterAdapter.getPrinterStatus();
         } catch (IOException e) {
             log.error("get lexmark printer status error", e);
-            return "error";
+            return "error ,"+e.getMessage() ;
         }
     }
 
