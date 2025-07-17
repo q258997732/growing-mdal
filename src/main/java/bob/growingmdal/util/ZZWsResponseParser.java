@@ -567,7 +567,7 @@ public class ZZWsResponseParser {
     }
 
     public static String getFaceEigenvalueData(String params){
-        String[] parts = params.split("#");
+        String[] parts = params. split("#");
         if (parts.length < 2) {
             return "获取失败";
         }
