@@ -54,6 +54,22 @@ public class LexmarkPrinterService extends AnnotationDrivenHandler {
         }
     }
 
+    @DeviceOperation(DeviceType = "Printer", ProcessCommand = "getLexmarkPrintingAvailable")
+    public String getLexmarkPrintingAvailable() {
+        try {
+            String status = lexmarkPrinterAdapter.getPrinterStatus();
+            String err = lexmarkPrinterAdapter.getPrinterErrStatus();
+            if("设备状态正常，无异常".equals(err)&&"空闲".equals(status)){
+                return "打印已就绪";
+            }else{
+                return "打印未就绪, 状态 :"+status+" ,错误 :"+err;
+            }
+        } catch (IOException e) {
+            log.error("get lexmark printer status error", e);
+            return "error ,"+e.getMessage() ;
+        }
+    }
+
     @Override
     public boolean supports(DeviceCommand command) {
         return "Printer".equals(command.getDeviceType());
