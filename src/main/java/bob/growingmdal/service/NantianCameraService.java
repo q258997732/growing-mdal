@@ -227,8 +227,8 @@ public class NantianCameraService extends AnnotationDrivenHandler {
 
         if (message.contains("Capture")) {
             retData = ZZWsResponseParser.getCaptureBase64(response);
-        }else if (message.contains("GetFaceTemplFromBase64")) {
-            retData = ZZWsResponseParser.getFaceEigenvalueData( response);
+        } else if (message.contains("GetFaceTemplFromBase64")) {
+            retData = ZZWsResponseParser.getFaceEigenvalueData(response);
         }
 
         response = ZZWsResponseParser.parseResponse(response);
@@ -605,22 +605,25 @@ public class NantianCameraService extends AnnotationDrivenHandler {
     @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StopGetFaceTempl")
     public String stopGetFaceTempl() {
         cameraStatus.get("getFaceStart").set(false);
-        getFaceTemplExecutor.shutdownNow(); // 立即中断线程
+//        getFaceTemplExecutor.shutdownNow(); // 立即中断线程
         return "StopGetFaceTempl success";
     }
 
     @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StartGetVideo")
     public NantianCameraResponse startGetVideo(DeviceCommand command) {
-        if (cameraStatus.get("cameraOpen").compareAndSet(false, true)) {
+        if (!cameraStatus.get("cameraOpen").get() ) {
             return new NantianCameraResponse(500, "Camera not open", "");
+        }
+        if(cameraStatus.get("getVideo").compareAndSet(false, true)){
+            return new NantianCameraResponse(500, "Video already open", "");
         }
         lastGetVidoTime = Instant.now();
 
         videoStreamExecutor.submit(() -> {
-            while (cameraStatus.get("cameraOpen").get() && !Thread.currentThread().isInterrupted()) {
+            while (cameraStatus.get("getVideo").get() && !Thread.currentThread().isInterrupted()) {
                 Instant end = lastGetVidoTime.plus(Duration.ofSeconds(videoTime));
                 if (Instant.now().isAfter(end)) {
-                    cameraStatus.get("cameraOpen").set(false);
+                    cameraStatus.get("getVideo").set(false);
                 }
                 PriorityBlockingQueue<TimestampedBuffer> tmp = binaryQueue.getBetweenAndRemove(lastGetVidoTime, end);
                 tmp.forEach(tb -> {
@@ -629,7 +632,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
                     performOperation(command);
                 });
             }
-            cameraStatus.get("cameraOpen").set(false);
+            cameraStatus.get("getVideo").set(false);
         });
 
         return new NantianCameraResponse(200, "Get Video start", "");
@@ -637,8 +640,8 @@ public class NantianCameraService extends AnnotationDrivenHandler {
 
     @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StopGetVideo")
     public String stopGetVideo() {
-        cameraStatus.get("cameraOpen").set(false);
-        videoStreamExecutor.shutdownNow();
+        cameraStatus.get("getVideo").set(false);
+//        videoStreamExecutor.shutdownNow();
         return "Stop Get Video";
     }
 
@@ -665,13 +668,18 @@ public class NantianCameraService extends AnnotationDrivenHandler {
         }
         lastFaceDetectTime = Instant.now();
 
+        if(faceDetectionExecutor.isShutdown()){
+            faceDetectionExecutor.shutdown();
+        }
+
         faceDetectionExecutor.submit(() -> {
             while (cameraStatus.get("faceDetect").get() && !Thread.currentThread().isInterrupted()) {
-                // 判断是否超过30秒
-                if(lastFaceDetectTime.plus(Duration.ofSeconds(detectTime)).isBefore(Instant.now())){
+                // 判断是否超过预设时间
+                if (lastFaceDetectTime.plus(Duration.ofSeconds(detectTime)).isBefore(Instant.now())) {
+//                    stopFaceDetect();
+                    command.setTransferData("face detect timeout :" + detectTime);
+                    performOperation(command);
                     stopFaceDetect();
-                    command.setTransferData("face detect timeout :"+ detectTime);
-                    performOperation( command);
                 }
                 synchronized (messageQueue) {
                     Iterator<String> iterator = messageQueue.iterator();
@@ -683,7 +691,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
                             command.setTransferData(parseRet);
                             performOperation(command);
                             iterator.remove();
-                            if(parseRet.contains("成功")){
+                            if (parseRet.contains("成功")) {
                                 stopFaceDetect();
                             }
                         }
@@ -705,12 +713,12 @@ public class NantianCameraService extends AnnotationDrivenHandler {
     public String stopFaceDetect() {
         cameraStatus.get("faceDetect").set(false);
         messageQueue.removeIf(current -> current.contains("FaceDetect"));
-        faceDetectionExecutor.shutdownNow();
+//        faceDetectionExecutor.();
         return "stop face detect success";
     }
 
     @DeviceOperation(DeviceType = "Camera", ProcessCommand = "GetFaceTemplFromBase64")
-    public NantianCameraResponse getFaceTemplFromBase64(DeviceCommand command){
+    public NantianCameraResponse getFaceTemplFromBase64(DeviceCommand command) {
         String base64 = command.getTransferData();
         String message = "GetFaceTemplFromBase64@" + base64;
         return sendMessageGetResponse(message, responseTimeout);

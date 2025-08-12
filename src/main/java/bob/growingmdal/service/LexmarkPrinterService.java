@@ -34,7 +34,7 @@ public class LexmarkPrinterService extends AnnotationDrivenHandler {
         lexmarkPrinterAdapter = new LexmarkPrinterAdapter(ip, community);
     }
 
-    @DeviceOperation(DeviceType = "Printer", ProcessCommand = "getLexmarkErrStatus")
+    @DeviceOperation(DeviceType = "LexmarkPrinter", ProcessCommand = "getLexmarkErrStatus")
     public String getLexmarkErrStatus() {
         try {
             return lexmarkPrinterAdapter.getPrinterErrStatus();
@@ -44,7 +44,7 @@ public class LexmarkPrinterService extends AnnotationDrivenHandler {
         }
     }
 
-    @DeviceOperation(DeviceType = "Printer", ProcessCommand = "getLexmarkStatus")
+    @DeviceOperation(DeviceType = "LexmarkPrinter", ProcessCommand = "getLexmarkStatus")
     public String getLexmarkStatus() {
         try {
             return lexmarkPrinterAdapter.getPrinterStatus();
@@ -54,7 +54,7 @@ public class LexmarkPrinterService extends AnnotationDrivenHandler {
         }
     }
 
-    @DeviceOperation(DeviceType = "Printer", ProcessCommand = "getLexmarkPrintingAvailable")
+    @DeviceOperation(DeviceType = "LexmarkPrinter", ProcessCommand = "getLexmarkPrintingAvailable")
     public String getLexmarkPrintingAvailable() {
         try {
             String status = lexmarkPrinterAdapter.getPrinterStatus();
@@ -72,6 +72,6 @@ public class LexmarkPrinterService extends AnnotationDrivenHandler {
 
     @Override
     public boolean supports(DeviceCommand command) {
-        return "Printer".equals(command.getDeviceType());
+        return "LexmarkPrinter".equals(command.getDeviceType());
     }
 }
