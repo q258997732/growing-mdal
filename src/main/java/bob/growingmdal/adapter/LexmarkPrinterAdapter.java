@@ -13,6 +13,10 @@ import java.util.Map;
 @Slf4j
 public class LexmarkPrinterAdapter {
 
+    // 定义OID常量
+    private static final String PRINTER_STATUS_OID = ".1.3.6.1.2.1.25.3.5.1.1.1";
+    private static final String PRINTER_ERR_STATUS_OID = ".1.3.6.1.2.1.25.3.5.1.2.1";
+
     SnmpUtil snmpUtil;
 
     /**
@@ -56,12 +60,18 @@ public class LexmarkPrinterAdapter {
      * @throws IOException 报错信息
      */
     public String getPrinterErrStatus() throws IOException {
-        Variable singleResult = snmpUtil.snmpGetSingle(".1.3.6.1.2.1.25.3.5.1.2.1");
+        Variable singleResult = snmpUtil.snmpGetSingle(PRINTER_ERR_STATUS_OID);
+        if (singleResult == null) {
+            throw new IOException("SNMP request returned null for printer error status");
+        }
         return parsePrinterErrStatus(singleResult.toString());
     }
 
     public String getPrinterStatus() throws IOException {
-        Variable singleResult = snmpUtil.snmpGetSingle(".1.3.6.1.2.1.25.3.5.1.1.1");
+        Variable singleResult = snmpUtil.snmpGetSingle(PRINTER_STATUS_OID);
+        if (singleResult == null) {
+            throw new IOException("SNMP request returned null for printer status");
+        }
         return parsePrinterStatus(singleResult.toString());
     }
 

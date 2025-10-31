@@ -85,7 +85,7 @@ public abstract class AnnotationDrivenHandler implements HardwareCommandHandler 
         } catch (Exception e) {
             log.error("AnnotationDrivenHandler handle error: ", e);
             command.setTransferData("error :" + e.getMessage());
-            throw new RuntimeException("need parameter: " + parameterTypesToString(parameterTypes) + "\n" + e);
+            throw new RuntimeException("operate error: " + e);
         }
 
     }

@@ -15,7 +15,6 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.configurationprocessor.json.JSONException;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.context.ApplicationEventPublisher;
@@ -75,21 +74,15 @@ public class NantianCameraService extends AnnotationDrivenHandler {
     private Instant lastFaceDetectTime;
 
     @PostConstruct
-    public void connect() {
-            // 初始化开关
-            cameraStatus.put("cameraOpen", new AtomicBoolean(false));
-            cameraStatus.put("faceDetect", new AtomicBoolean(false));
-            cameraStatus.put("getFaceStart", new AtomicBoolean(false));
-            cameraStatus.put("getVideo", new AtomicBoolean(false));
-            cameraStatus.put("videoCollect", new AtomicBoolean(true));
+    public void init() {
+        // 初始化开关
+        cameraStatus.put("cameraOpen", new AtomicBoolean(false));
+        cameraStatus.put("faceDetect", new AtomicBoolean(false));
+        cameraStatus.put("getFaceStart", new AtomicBoolean(false));
+        cameraStatus.put("getVideo", new AtomicBoolean(false));
+        cameraStatus.put("videoCollect", new AtomicBoolean(true));
 
-            binaryStartTime = msgStartTime = System.currentTimeMillis();
-            cleaner.scheduleAtFixedRate(cleanupTask, 0, 5, TimeUnit.SECONDS);
-    }
-
-    @OnOpen
-    public void onOpen(Session session) {
-        if(!enable) {
+        if (!enable) {
             log.info("Nantian camera service is disabled.");
             return;
         }
@@ -100,9 +93,17 @@ public class NantianCameraService extends AnnotationDrivenHandler {
             container.setDefaultMaxTextMessageBufferSize(50 * 1024 * 1024);
             container.connectToServer(this, new URI(cameraUrl));
             log.info("Connected to server: {}", cameraUrl);
-        }catch (Exception e) {
+        } catch (Exception e) {
             log.error("Failed to connect nantian WebSocket", e);
         }
+
+        binaryStartTime = msgStartTime = System.currentTimeMillis();
+        cleaner.scheduleAtFixedRate(cleanupTask, 0, 5, TimeUnit.SECONDS);
+    }
+
+
+    @OnOpen
+    public void onOpen(Session session) {
         this.session = session;
     }
 
@@ -118,23 +119,8 @@ public class NantianCameraService extends AnnotationDrivenHandler {
     @OnMessage
     public void onMessage(ByteBuffer bytes, Session session) {
         if (cameraStatus.get("videoCollect").get()) {
-//            log.info("Received BINARY message, length: {}", bytes.remaining());
             binaryQueue.add(bytes);
         } else {
-//        try {
-//            // 创建文件输出流
-//            FileOutputStream fos = new FileOutputStream("received_image.jpg"+System.currentTimeMillis());
-//            // 获取通道
-//            FileChannel channel = fos.getChannel();
-//            // 写入文件
-//            channel.write(bytes);
-//            channel.close();
-//            fos.close();
-//            System.out.println("Image saved as received_image.jpg");
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-
             binaryLatch.countDown();
             binaryLatch = new CountDownLatch(1);
         }
@@ -218,6 +204,9 @@ public class NantianCameraService extends AnnotationDrivenHandler {
     };
 
     public NantianCameraResponse sendMessageGetResponse(String message, int timeout) {
+        if(!enable){
+            return getUnavailableResponse();
+        }
         boolean received = false;
         String response = null;
         String retData = null;
@@ -454,6 +443,9 @@ public class NantianCameraService extends AnnotationDrivenHandler {
      */
     @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StartNtCamera")
     public NantianCameraResponse startNtCamera() {
+        if(!enable){
+            return getUnavailableResponse();
+        }
         if (cameraStatus.get("cameraOpen").get()) {
             return new NantianCameraResponse(500, "Camera already open", "");
         }
@@ -618,10 +610,10 @@ public class NantianCameraService extends AnnotationDrivenHandler {
 
     @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StartGetVideo")
     public NantianCameraResponse startGetVideo(DeviceCommand command) {
-        if (!cameraStatus.get("cameraOpen").get() ) {
+        if (!cameraStatus.get("cameraOpen").get()) {
             return new NantianCameraResponse(500, "Camera not open", "");
         }
-        if(!cameraStatus.get("getVideo").compareAndSet(false, true)){
+        if (!cameraStatus.get("getVideo").compareAndSet(false, true)) {
             return new NantianCameraResponse(500, "Video already open", "");
         }
         lastGetVidoTime = Instant.now();
@@ -675,7 +667,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
         }
         lastFaceDetectTime = Instant.now();
 
-        if(faceDetectionExecutor.isShutdown()){
+        if (faceDetectionExecutor.isShutdown()) {
             faceDetectionExecutor.shutdown();
         }
 
@@ -747,63 +739,8 @@ public class NantianCameraService extends AnnotationDrivenHandler {
         return "Camera".equals(command.getDeviceType());
     }
 
-
-//
-//    public static void main(String[] args) {
-//        try {
-//            URI uri = new URI("ws://192.168.107.103:7000");
-//            WebSocketContainer container = ContainerProvider.getWebSocketContainer();
-//            container.setDefaultMaxBinaryMessageBufferSize(100 * 1024 * 1024);
-//
-//            NantianCameraService client = new NantianCameraService();
-//            container.connectToServer(client, uri);
-//
-//            client.sendMessage("OpenDevice@2");
-//
-//            boolean received = client.messageLatch.await(10, TimeUnit.SECONDS);
-//            if (!received) {
-//                System.out.println("No response from server within 10 seconds");
-//            }
-//
-//            boolean bo = false;
-//            for (String str : client.messageQueue) {
-//                if (str.contains("OpenDevice")) {
-//                    bo = true;
-//                    System.out.println("OpenDevice success. " + ZZWsResponseParser.parseResponse(str));
-//                }
-//            }
-//            if (!bo) {
-//                System.out.println("OpenDevice failed.");
-//                return;
-//            }
-//            System.out.println(System.currentTimeMillis());
-//            client.sendMessage("OpenVideo");
-//            received = client.binaryLatch.await(2, TimeUnit.SECONDS);
-//            if (!received) {
-//                System.out.println("No response from server within 2 seconds");
-//            }
-//            System.out.println(System.currentTimeMillis());
-//
-//            client.sendMessage("CloseVideo");
-//
-//
-//            client.sendMessage("CloseDevice");
-//            received = client.messageLatch.await(2, TimeUnit.SECONDS);
-//            if (!received) {
-//                System.out.println("No response from server within 10 seconds");
-//            }
-//            Thread.sleep(1000);
-//            client.session.close();
-//            System.out.println("Message queue:");
-//            for (String str : client.messageQueue) {
-//                System.out.println(str);
-//            }
-//            System.out.println("Binary queue: " + client.binaryQueue.size());
-//
-//
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//    }
+    private NantianCameraResponse getUnavailableResponse() {
+        return new NantianCameraResponse(500, "Internal Server Error", "Nantian camera service is disabled.");
+    }
 
 }
