@@ -83,7 +83,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
             cameraStatus.put("cameraOpen", new AtomicBoolean(false));
             cameraStatus.put("faceDetect", new AtomicBoolean(false));
             cameraStatus.put("getFaceStart", new AtomicBoolean(false));
-            cameraStatus.put("getVideo", new AtomicBoolean(true));
+            cameraStatus.put("getVideo", new AtomicBoolean(false));
             cameraStatus.put("videoCollect", new AtomicBoolean(true));
 
             binaryStartTime = msgStartTime = System.currentTimeMillis();
@@ -614,7 +614,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
         if (!cameraStatus.get("cameraOpen").get() ) {
             return new NantianCameraResponse(500, "Camera not open", "");
         }
-        if(cameraStatus.get("getVideo").compareAndSet(false, true)){
+        if(!cameraStatus.get("getVideo").compareAndSet(false, true)){
             return new NantianCameraResponse(500, "Video already open", "");
         }
         lastGetVidoTime = Instant.now();
