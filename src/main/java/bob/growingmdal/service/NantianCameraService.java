@@ -82,6 +82,9 @@ public class NantianCameraService extends AnnotationDrivenHandler {
         cameraStatus.put("getVideo", new AtomicBoolean(false));
         cameraStatus.put("videoCollect", new AtomicBoolean(true));
 
+        binaryStartTime = msgStartTime = System.currentTimeMillis();
+        cleaner.scheduleAtFixedRate(cleanupTask, 0, 5, TimeUnit.SECONDS);
+
         if (!enable) {
             log.info("Nantian camera service is disabled.");
             return;
@@ -97,8 +100,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
             log.error("Failed to connect nantian WebSocket", e);
         }
 
-        binaryStartTime = msgStartTime = System.currentTimeMillis();
-        cleaner.scheduleAtFixedRate(cleanupTask, 0, 5, TimeUnit.SECONDS);
+
     }
 
 
@@ -217,7 +219,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
             log.error("Interrupted while waiting for response", e);
             return new NantianCameraResponse(500, "Internal Server Error", e.getMessage());
         }
-        String tmp = messageQueue.getFirst();
+
         response = getMsgResponse(message);
         log.info("response is: {}", response);
 
