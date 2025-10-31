@@ -11,4 +11,8 @@ import org.springframework.context.annotation.PropertySource;
 @Setter
 public class AdapterConfig
 {
+    /**
+     * 把adapter的参数拉进来
+      */
+
 }
