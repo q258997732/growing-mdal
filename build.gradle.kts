@@ -59,6 +59,8 @@ dependencies {
     implementation("org.bytedeco:javacv-platform:1.5.9")
     // SNMP4J
     implementation("org.snmp4j:snmp4j:3.7.2")
+    // Lombok
+    implementation("org.projectlombok:lombok:1.18.30")
 
 }
 
