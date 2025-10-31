@@ -35,7 +35,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Slf4j
 @Service
 @ClientEndpoint
-@ConditionalOnProperty(name = "nantian.camera.enable", havingValue = "true")
 public class NantianCameraService extends AnnotationDrivenHandler {
 
     @Autowired
@@ -69,18 +68,14 @@ public class NantianCameraService extends AnnotationDrivenHandler {
     private int videoTime;
     @Value("${nantian.camera.detect.time}")
     private int detectTime;
+    @Value("${nantian.camera.enable}")
+    private boolean enable;
 
     private Instant lastGetVidoTime;
     private Instant lastFaceDetectTime;
 
     @PostConstruct
     public void connect() {
-        try {
-            WebSocketContainer container = ContainerProvider.getWebSocketContainer();
-            container.setDefaultMaxBinaryMessageBufferSize(100 * 1024 * 1024);
-            container.setDefaultMaxTextMessageBufferSize(50 * 1024 * 1024);
-            container.connectToServer(this, new URI(cameraUrl));
-
             // 初始化开关
             cameraStatus.put("cameraOpen", new AtomicBoolean(false));
             cameraStatus.put("faceDetect", new AtomicBoolean(false));
@@ -90,14 +85,24 @@ public class NantianCameraService extends AnnotationDrivenHandler {
 
             binaryStartTime = msgStartTime = System.currentTimeMillis();
             cleaner.scheduleAtFixedRate(cleanupTask, 0, 5, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to connect nantian WebSocket", e);
-        }
     }
 
     @OnOpen
     public void onOpen(Session session) {
-        log.info("Connected to server: {}", cameraUrl);
+        if(!enable) {
+            log.info("Nantian camera service is disabled.");
+            return;
+        }
+
+        try {
+            WebSocketContainer container = ContainerProvider.getWebSocketContainer();
+            container.setDefaultMaxBinaryMessageBufferSize(100 * 1024 * 1024);
+            container.setDefaultMaxTextMessageBufferSize(50 * 1024 * 1024);
+            container.connectToServer(this, new URI(cameraUrl));
+            log.info("Connected to server: {}", cameraUrl);
+        }catch (Exception e) {
+            log.error("Failed to connect nantian WebSocket", e);
+        }
         this.session = session;
     }
 

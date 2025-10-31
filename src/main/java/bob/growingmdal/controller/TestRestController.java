@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
 @RestController
-@ConditionalOnProperty(name = "nantian.camera.enable", havingValue = "true")
 public class TestRestController {
 
     @Resource
