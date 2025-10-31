@@ -22,6 +22,7 @@ bin/
 *.iws
 *.iml
 *.ipr
+.lingma
 out/
 !**/src/main/**/out/
 !**/src/bob.growingmdal.test/**/out/

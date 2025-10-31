@@ -15,6 +15,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.configurationprocessor.json.JSONException;
 import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.context.ApplicationEventPublisher;
@@ -34,6 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Slf4j
 @Service
 @ClientEndpoint
+@ConditionalOnProperty(name = "nantian.camera.enable", havingValue = "true")
 public class NantianCameraService extends AnnotationDrivenHandler {
 
     @Autowired
@@ -89,7 +91,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
             binaryStartTime = msgStartTime = System.currentTimeMillis();
             cleaner.scheduleAtFixedRate(cleanupTask, 0, 5, TimeUnit.SECONDS);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to connect WebSocket", e);
+            throw new RuntimeException("Failed to connect nantian WebSocket", e);
         }
     }
 

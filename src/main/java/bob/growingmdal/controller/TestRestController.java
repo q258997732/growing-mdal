@@ -7,6 +7,7 @@ import bob.growingmdal.entity.response.SuccessResponseBean;
 import bob.growingmdal.handler.HardwareWebSocketHandler;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
 @RestController
+@ConditionalOnProperty(name = "nantian.camera.enable", havingValue = "true")
 public class TestRestController {
 
     @Resource
