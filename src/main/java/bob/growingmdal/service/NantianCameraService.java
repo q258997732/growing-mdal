@@ -73,6 +73,8 @@ public class NantianCameraService extends AnnotationDrivenHandler {
     private boolean enable;
     @Value("${nantian.camera.auto.reconnect}")
     private boolean autoReconnect;
+    @Value("${nantian.camera.auto.reconnect.interval}")
+    private int autoReconnectInterval;
 
     private Instant lastGetVidoTime;
     private Instant lastFaceDetectTime;
@@ -135,10 +137,10 @@ public class NantianCameraService extends AnnotationDrivenHandler {
 
     @OnClose
     public void onClose(Session session, CloseReason closeReason) {
-        if (autoReconnect && enable) {
-            log.info("Trying to reconnect Nantian Server per 5s... ");
+        while (autoReconnect && enable) {
+            log.info("Trying to reconnect Nantian Server per {}s... ",autoReconnectInterval);
             try {
-                Thread.sleep(5000);
+                Thread.sleep(autoReconnectInterval);
             } catch (InterruptedException e) {
                 log.error("Interrupted while waiting for reconnection", e);
             }
