@@ -13,6 +13,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.websocket.*;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.platform.commons.function.Try;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.configurationprocessor.json.JSONException;
@@ -206,7 +207,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
     };
 
     public NantianCameraResponse sendMessageGetResponse(String message, int timeout) {
-        if(!enable){
+        if (!enable) {
             return getUnavailableResponse();
         }
         boolean received = false;
@@ -445,7 +446,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
      */
     @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StartNtCamera")
     public NantianCameraResponse startNtCamera() {
-        if(!enable){
+        if (!enable) {
             return getUnavailableResponse();
         }
         if (cameraStatus.get("cameraOpen").get()) {
@@ -507,6 +508,18 @@ public class NantianCameraService extends AnnotationDrivenHandler {
 
             // 初始化人脸识别库
             result = initFaceMgr();
+            // 接口这里有点慢 需要多开几次
+            for (int i = 0; i < 3; i++) {
+                if (result.isSuccess()) {
+                    break;
+                }
+                result = initFaceMgr();
+                try {
+                    Thread.sleep(1000);
+                } catch (Exception e) {
+                    log.error("init face mgr , sleep error : {}", e.getMessage());
+                }
+            }
             if (!result.isSuccess()) {
                 throw new PreOperationException("Init face mgr failed");
             }
