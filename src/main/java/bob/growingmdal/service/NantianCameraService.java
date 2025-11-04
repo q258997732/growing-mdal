@@ -22,6 +22,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 
+import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.time.Duration;
@@ -70,6 +71,8 @@ public class NantianCameraService extends AnnotationDrivenHandler {
     private int detectTime;
     @Value("${nantian.camera.enable}")
     private boolean enable;
+    @Value("${nantian.camera.auto.reconnect}")
+    private boolean autoReconnect;
 
     private Instant lastGetVidoTime;
     private Instant lastFaceDetectTime;
@@ -101,13 +104,14 @@ public class NantianCameraService extends AnnotationDrivenHandler {
             log.error("Failed to connect nantian WebSocket", e);
         }
 
-
     }
 
 
     @OnOpen
     public void onOpen(Session session) {
         this.session = session;
+        // 永不超时
+        session.setMaxIdleTimeout(0);
     }
 
     // 处理文本消息
@@ -131,17 +135,26 @@ public class NantianCameraService extends AnnotationDrivenHandler {
 
     @OnClose
     public void onClose(Session session, CloseReason closeReason) {
+        if (autoReconnect && enable) {
+            log.info("Trying to reconnect Nantian Server per 5s... ");
+            try {
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                log.error("Interrupted while waiting for reconnection", e);
+            }
+            init();
+        }
         cleaner.shutdownNow();
         faceDetectionExecutor.shutdownNow();
         videoStreamExecutor.shutdownNow();
         getFaceTemplExecutor.shutdownNow();
-        System.out.println("Connection closed: " + closeReason);
+        log.info("Session closed: {}", closeReason);
     }
 
     @OnError
     public void onError(Session session, Throwable throwable) {
         System.err.println("WebSocket error: ");
-        throwable.printStackTrace();
+        log.error("WebSocket error: ", throwable);
     }
 
     public void sendMessage(String message) {
