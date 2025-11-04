@@ -13,7 +13,6 @@ import jakarta.annotation.PostConstruct;
 import jakarta.websocket.*;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.junit.platform.commons.function.Try;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.configurationprocessor.json.JSONException;
@@ -22,7 +21,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 
-import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.time.Duration;
@@ -76,7 +74,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
     @Value("${nantian.camera.auto.reconnect.interval}")
     private int autoReconnectInterval;
 
-    private Instant lastGetVidoTime;
+    private Instant lastGetVideoTime;
     private Instant lastFaceDetectTime;
 
     @PostConstruct
@@ -104,6 +102,15 @@ public class NantianCameraService extends AnnotationDrivenHandler {
             log.info("Connected to server: {}", cameraUrl);
         } catch (Exception e) {
             log.error("Failed to connect nantian WebSocket", e);
+        }
+
+        // 打开摄像头速度慢 连接上以后就开始打开摄像头
+        NantianCameraResponse response = startNtCamera();
+
+        if (response.isSuccess()) {
+            log.info("Nantian camera started successfully.");
+        } else {
+            log.info("Failed to start Nantian camera : {}", response.getMessage());
         }
 
     }
@@ -137,6 +144,8 @@ public class NantianCameraService extends AnnotationDrivenHandler {
 
     @OnClose
     public void onClose(Session session, CloseReason closeReason) {
+
+        // 自动重连
         while (autoReconnect && enable) {
             log.info("Trying to reconnect Nantian Server per {}s... ",autoReconnectInterval);
             try {
@@ -146,6 +155,15 @@ public class NantianCameraService extends AnnotationDrivenHandler {
             }
             init();
         }
+
+        // 先关闭摄像头
+        NantianCameraResponse response = stopNtCamera();
+        if (response.isSuccess()) {
+            log.info("Nantian camera stopped successfully.");
+        } else {
+            log.info("Failed to stop Nantian camera : {}", response.getMessage());
+        }
+
         cleaner.shutdownNow();
         faceDetectionExecutor.shutdownNow();
         videoStreamExecutor.shutdownNow();
@@ -155,7 +173,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
 
     @OnError
     public void onError(Session session, Throwable throwable) {
-        System.err.println("WebSocket error: ");
+//        System.err.println("WebSocket error: ");
         log.error("WebSocket error: ", throwable);
     }
 
@@ -646,15 +664,16 @@ public class NantianCameraService extends AnnotationDrivenHandler {
         if (!cameraStatus.get("getVideo").compareAndSet(false, true)) {
             return new NantianCameraResponse(500, "Video already open", "");
         }
-        lastGetVidoTime = Instant.now();
+        lastGetVideoTime = Instant.now();
 
         videoStreamExecutor.submit(() -> {
             while (cameraStatus.get("getVideo").get() && !Thread.currentThread().isInterrupted()) {
-                Instant end = lastGetVidoTime.plus(Duration.ofSeconds(videoTime));
+                Instant end = lastGetVideoTime.plus(Duration.ofSeconds(videoTime));
                 if (Instant.now().isAfter(end)) {
                     cameraStatus.get("getVideo").set(false);
+                    log.info("Get video finish ({}s)",videoTime);
                 }
-                PriorityBlockingQueue<TimestampedBuffer> tmp = binaryQueue.getBetweenAndRemove(lastGetVidoTime, end);
+                PriorityBlockingQueue<TimestampedBuffer> tmp = binaryQueue.getBetweenAndRemove(lastGetVideoTime, end);
                 tmp.forEach(tb -> {
                     String base64Str = Base64.getEncoder().encodeToString(tb.getBuffer().array());
                     command.setTransferData(base64Str);
