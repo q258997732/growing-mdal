@@ -100,18 +100,20 @@ public class NantianCameraService extends AnnotationDrivenHandler {
             container.setDefaultMaxTextMessageBufferSize(50 * 1024 * 1024);
             container.connectToServer(this, new URI(cameraUrl));
             log.info("Connected to server: {}", cameraUrl);
+
+            // 打开摄像头速度慢 连接上以后就开始打开摄像头
+            NantianCameraResponse response = startNtCamera();
+
+            if (response.isSuccess()) {
+                log.info("Nantian camera started successfully.");
+            } else {
+                log.info("Failed to start Nantian camera : {}", response.getMessage());
+            }
+
         } catch (Exception e) {
             log.error("Failed to connect nantian WebSocket", e);
         }
 
-        // 打开摄像头速度慢 连接上以后就开始打开摄像头
-        NantianCameraResponse response = startNtCamera();
-
-        if (response.isSuccess()) {
-            log.info("Nantian camera started successfully.");
-        } else {
-            log.info("Failed to start Nantian camera : {}", response.getMessage());
-        }
 
     }
 
@@ -147,7 +149,17 @@ public class NantianCameraService extends AnnotationDrivenHandler {
 
         // 自动重连
         while (autoReconnect && enable) {
-            log.info("Trying to reconnect Nantian Server per {}s... ",autoReconnectInterval);
+
+            // 先关闭摄像头
+            log.info("Connection onClose , Stopping Nantian camera...");
+            NantianCameraResponse response = stopNtCamera();
+            if (response.isSuccess()) {
+                log.info("Nantian camera stopped successfully.");
+            } else {
+                log.info("Failed to stop Nantian camera : {}", response.getMessage());
+            }
+
+            log.info("Trying to reconnect Nantian Server per {} ms... ",autoReconnectInterval);
             try {
                 Thread.sleep(autoReconnectInterval);
             } catch (InterruptedException e) {
@@ -156,13 +168,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
             init();
         }
 
-        // 先关闭摄像头
-        NantianCameraResponse response = stopNtCamera();
-        if (response.isSuccess()) {
-            log.info("Nantian camera stopped successfully.");
-        } else {
-            log.info("Failed to stop Nantian camera : {}", response.getMessage());
-        }
+
 
         cleaner.shutdownNow();
         faceDetectionExecutor.shutdownNow();
