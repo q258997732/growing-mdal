@@ -102,7 +102,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
 
         // 开启自动连接
         if(autoReconnect) {
-            autoConnectExecutor.scheduleAtFixedRate(autoConnect, 0, autoReconnectInterval, TimeUnit.SECONDS);
+            autoConnectExecutor.scheduleAtFixedRate(autoConnect, 0, autoReconnectInterval, TimeUnit.MILLISECONDS);
         }
     }
 
@@ -784,7 +784,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
         synchronized (this) {
 
             if(session != null && session.isOpen()){
-                log.info("Nantian camera is already connected.");
+                log.debug("auto reconnect : Nantian camera is already connected.");
                 return;
             }
 
