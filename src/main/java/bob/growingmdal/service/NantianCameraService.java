@@ -98,6 +98,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
         }
 
         connect();
+        startNtCamera();
 
         // 开启自动连接
         if(autoReconnect) {
