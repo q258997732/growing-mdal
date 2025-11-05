@@ -48,6 +48,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
     private final CountDownLatch messageLatch = new CountDownLatch(1);
     private volatile CountDownLatch binaryLatch = new CountDownLatch(1);
     private final ScheduledExecutorService cleaner = Executors.newSingleThreadScheduledExecutor();
+    private final ScheduledExecutorService autoConnectExecutor = Executors.newSingleThreadScheduledExecutor();
     private final ExecutorService faceDetectionExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService videoStreamExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService getFaceTemplExecutor = Executors.newSingleThreadExecutor();
@@ -85,12 +86,28 @@ public class NantianCameraService extends AnnotationDrivenHandler {
         cameraStatus.put("getFaceStart", new AtomicBoolean(false));
         cameraStatus.put("getVideo", new AtomicBoolean(false));
         cameraStatus.put("videoCollect", new AtomicBoolean(true));
+        cameraStatus.put("isReconnect", new AtomicBoolean(false));
 
         binaryStartTime = msgStartTime = System.currentTimeMillis();
         cleaner.scheduleAtFixedRate(cleanupTask, 0, 5, TimeUnit.SECONDS);
+        // 定时自动连接
 
         if (!enable) {
             log.info("Nantian camera service is disabled.");
+            return;
+        }
+
+        connect();
+
+        // 开启自动连接
+        if(autoReconnect) {
+            autoConnectExecutor.scheduleAtFixedRate(autoConnect, 0, autoReconnectInterval, TimeUnit.SECONDS);
+        }
+    }
+
+    private void connect() {
+
+        if (session != null && session.isOpen()) {
             return;
         }
 
@@ -101,22 +118,25 @@ public class NantianCameraService extends AnnotationDrivenHandler {
             container.connectToServer(this, new URI(cameraUrl));
             log.info("Connected to server: {}", cameraUrl);
 
+            if (cameraStatus.get("isReconnect").get()) {
+                // 重新连接后先关闭摄像头
+                log.info("Nantian camera api is reconnect , init status ...");
+                stopNtCamera();
+            }
+
             // 打开摄像头速度慢 连接上以后就开始打开摄像头
             NantianCameraResponse response = startNtCamera();
-
             if (response.isSuccess()) {
                 log.info("Nantian camera started successfully.");
             } else {
                 log.info("Failed to start Nantian camera : {}", response.getMessage());
             }
 
+            cameraStatus.put("isReconnect", new AtomicBoolean(true));
         } catch (Exception e) {
-            log.error("Failed to connect nantian WebSocket", e);
+            log.error("Failed to connect nantian WebSocket : {}", e.getMessage());
         }
-
-
     }
-
 
     @OnOpen
     public void onOpen(Session session) {
@@ -146,35 +166,11 @@ public class NantianCameraService extends AnnotationDrivenHandler {
 
     @OnClose
     public void onClose(Session session, CloseReason closeReason) {
-
-        // 自动重连
-        while (autoReconnect && enable) {
-
-            // 先关闭摄像头
-            log.info("Connection onClose , Stopping Nantian camera...");
-            NantianCameraResponse response = stopNtCamera();
-            if (response.isSuccess()) {
-                log.info("Nantian camera stopped successfully.");
-            } else {
-                log.info("Failed to stop Nantian camera : {}", response.getMessage());
-            }
-
-            log.info("Trying to reconnect Nantian Server per {} ms... ",autoReconnectInterval);
-            try {
-                Thread.sleep(autoReconnectInterval);
-            } catch (InterruptedException e) {
-                log.error("Interrupted while waiting for reconnection", e);
-            }
-            init();
-        }
-
-
-
         cleaner.shutdownNow();
         faceDetectionExecutor.shutdownNow();
         videoStreamExecutor.shutdownNow();
         getFaceTemplExecutor.shutdownNow();
-        log.info("Session closed: {}", closeReason);
+        log.info("Nantian camera api Session closed: {}", closeReason);
     }
 
     @OnError
@@ -677,7 +673,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
                 Instant end = lastGetVideoTime.plus(Duration.ofSeconds(videoTime));
                 if (Instant.now().isAfter(end)) {
                     cameraStatus.get("getVideo").set(false);
-                    log.info("Get video finish ({}s)",videoTime);
+                    log.info("Get video finish ({}s)", videoTime);
                 }
                 PriorityBlockingQueue<TimestampedBuffer> tmp = binaryQueue.getBetweenAndRemove(lastGetVideoTime, end);
                 tmp.forEach(tb -> {
@@ -797,5 +793,12 @@ public class NantianCameraService extends AnnotationDrivenHandler {
     private NantianCameraResponse getUnavailableResponse() {
         return new NantianCameraResponse(500, "Internal Server Error", "Nantian camera service is disabled.");
     }
+
+    private final Runnable autoConnect = () -> {
+        synchronized (this) {
+            log.info("Trying to connect to Nantian camera...");
+            connect();
+        }
+    };
 
 }
