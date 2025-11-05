@@ -105,37 +105,22 @@ public class NantianCameraService extends AnnotationDrivenHandler {
         }
     }
 
-    private void connect() {
-
+    private boolean connect() {
         if (session != null && session.isOpen()) {
-            return;
+            return false;
         }
-
         try {
             WebSocketContainer container = ContainerProvider.getWebSocketContainer();
             container.setDefaultMaxBinaryMessageBufferSize(100 * 1024 * 1024);
             container.setDefaultMaxTextMessageBufferSize(50 * 1024 * 1024);
             container.connectToServer(this, new URI(cameraUrl));
             log.info("Connected to server: {}", cameraUrl);
-
-            if (cameraStatus.get("isReconnect").get()) {
-                // 重新连接后先关闭摄像头
-                log.info("Nantian camera api is reconnect , init status ...");
-                stopNtCamera();
-            }
-
-            // 打开摄像头速度慢 连接上以后就开始打开摄像头
-            NantianCameraResponse response = startNtCamera();
-            if (response.isSuccess()) {
-                log.info("Nantian camera started successfully.");
-            } else {
-                log.info("Failed to start Nantian camera : {}", response.getMessage());
-            }
-
             cameraStatus.put("isReconnect", new AtomicBoolean(true));
         } catch (Exception e) {
             log.error("Failed to connect nantian WebSocket : {}", e.getMessage());
+            return false;
         }
+        return true;
     }
 
     @OnOpen
@@ -796,8 +781,25 @@ public class NantianCameraService extends AnnotationDrivenHandler {
 
     private final Runnable autoConnect = () -> {
         synchronized (this) {
-            log.info("Trying to connect to Nantian camera...");
-            connect();
+
+            if(session != null && session.isOpen()){
+                log.info("Nantian camera is already connected.");
+                return;
+            }
+
+            log.info("Trying to reconnect to Nantian camera...");
+            boolean bo = connect();
+
+            if (bo) {
+                log.info("Connected to Nantian camera.");
+                // 先关闭
+                if(cameraStatus.get("isReconnect").get()){
+                    stopNtCamera();
+                }
+                NantianCameraResponse result = startNtCamera();
+            }
+
+
         }
     };
 
