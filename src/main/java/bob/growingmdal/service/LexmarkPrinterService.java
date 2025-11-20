@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 
 @Slf4j
-@Data
 @Service
 public class LexmarkPrinterService extends AnnotationDrivenHandler {
 

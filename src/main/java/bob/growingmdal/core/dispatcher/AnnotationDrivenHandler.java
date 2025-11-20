@@ -24,7 +24,7 @@ public abstract class AnnotationDrivenHandler implements HardwareCommandHandler 
             DeviceOperation annotation = method.getAnnotation(DeviceOperation.class);
             if (annotation != null) {
                 String key = buildOperationKey(annotation.DeviceType(), annotation.ProcessCommand());
-                method.setAccessible(true); // 允许调用私有方法
+                method.setAccessible(false); // 不允许调用私有方法
                 operationMethods.put(key, method);
             }
         }
