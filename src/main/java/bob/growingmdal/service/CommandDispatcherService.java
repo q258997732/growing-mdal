@@ -22,16 +22,17 @@ public class CommandDispatcherService {
     }
 
     public Object dispatch(DeviceCommand command) {
-        Object result = null;
+        Object result;
         log.debug("Dispatching command: device={}, cmd={}",
                 command.getDeviceType(), command.getProcessCommand());
 
+        // 获取支持该命令的处理器
         Optional<HardwareCommandHandler> handler = handlers.stream()
                 .filter(h -> h.supports(command))
                 .findFirst();
-        long i = handler.stream().count();
         log.debug("handler stream count:{} ", handler.stream().count());
 
+        // 没找到相应处理器，抛出异常
         if (handler.isEmpty()) {
             throw new UnsupportedOperationException(
                     "No handler for: " + command.getDeviceType() + ":" + command.getProcessCommand());
@@ -41,7 +42,7 @@ public class CommandDispatcherService {
             result = handler.get().handle(command);
         } catch (Exception e) {
             throw new HardwareOperationException(
-                    "Handler execution failed: " + e.getMessage(), e);
+                    "Handler execution failed - " + e.getMessage(), e);
         }
         return result;
     }

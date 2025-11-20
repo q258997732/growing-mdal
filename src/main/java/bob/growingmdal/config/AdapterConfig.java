@@ -12,10 +12,8 @@ import org.springframework.context.annotation.PropertySource;
 }, ignoreResourceNotFound = true)   // 外部文件找不到也不报错
 @Getter
 @Setter
-public class AdapterConfig
-{
-    /**
-     * 把adapter的参数拉进来
+public class AdapterConfig {
+    /*
+      把adapter的参数拉进来
       */
-
 }
