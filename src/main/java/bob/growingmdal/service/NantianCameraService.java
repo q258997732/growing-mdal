@@ -10,6 +10,7 @@ import bob.growingmdal.entity.TimestampedBuffer;
 import bob.growingmdal.entity.response.NantianCameraResponse;
 import bob.growingmdal.util.ZZWsResponseParser;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.Resource;
 import jakarta.websocket.*;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @ClientEndpoint
 public class NantianCameraService extends AnnotationDrivenHandler {
 
-    @Autowired
+    @Resource
     private ApplicationEventPublisher eventPublisher;
 
     @Getter
@@ -447,7 +448,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
         if (!cameraStatus.get("cameraOpen").get()) {
             return new NantianCameraResponse(500, "Camera not open", "");
         }
-        NantianCameraResponse result = null;
+        NantianCameraResponse result;
         try {
             result = capture(1);
             if (!result.isSuccess()) {
@@ -474,7 +475,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
             return new NantianCameraResponse(500, "Camera already open", "");
         }
 
-        NantianCameraResponse result = null;
+        NantianCameraResponse result;
         try {
             // 打开摄像头
             result = openDevice(2);
@@ -561,7 +562,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
         if (!cameraStatus.get("cameraOpen").get()) {
             return new NantianCameraResponse(200, "Camera not open", "");
         }
-        NantianCameraResponse result = null;
+        NantianCameraResponse result;
         cameraStatus.get("cameraOpen").set(false);
         try {
             result = closeVideo();
@@ -602,7 +603,7 @@ public class NantianCameraService extends AnnotationDrivenHandler {
      */
     @DeviceOperation(DeviceType = "Camera", ProcessCommand = "GetFaceTempl")
     public NantianCameraResponse getFaceTempl(DeviceCommand command) {
-        NantianCameraResponse result = null;
+        NantianCameraResponse result;
         if (!cameraStatus.get("getFaceStart").compareAndSet(false, true)) {
             return new NantianCameraResponse(500, "GetFaceTempl already start", "");
         }
@@ -799,8 +800,6 @@ public class NantianCameraService extends AnnotationDrivenHandler {
                 }
                 NantianCameraResponse result = startNtCamera();
             }
-
-
         }
     };
 

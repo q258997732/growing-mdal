@@ -5,7 +5,6 @@ import bob.growingmdal.annotation.DeviceOperation;
 import bob.growingmdal.core.command.DeviceCommand;
 import bob.growingmdal.core.dispatcher.AnnotationDrivenHandler;
 import jakarta.annotation.PostConstruct;
-import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -30,7 +29,7 @@ public class LexmarkPrinterService extends AnnotationDrivenHandler {
 
     @PostConstruct
     public void init() {
-        lexmarkPrinterAdapter = new LexmarkPrinterAdapter(ip, community);
+        lexmarkPrinterAdapter = new LexmarkPrinterAdapter(ip, community,timeout);
     }
 
     @DeviceOperation(DeviceType = "LexmarkPrinter", ProcessCommand = "getLexmarkErrStatus")

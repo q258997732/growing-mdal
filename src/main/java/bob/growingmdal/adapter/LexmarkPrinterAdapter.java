@@ -46,6 +46,10 @@ public class LexmarkPrinterAdapter {
         this(ip, community, SnmpConstants.version2c, 1500, 2);
     }
 
+    public LexmarkPrinterAdapter(String ip, String community,int timeout) {
+        this(ip, community, SnmpConstants.version2c, timeout, 2);
+    }
+
     public LexmarkPrinterAdapter(String ip, String community, int version, int timeout, int retries) {
         try {
             snmpUtil = new SnmpUtil(ip, community, version, timeout, retries);
@@ -54,6 +58,7 @@ public class LexmarkPrinterAdapter {
         }
     }
 
+    // TODO 当初始化无法连接上SNMP时，考虑在后续有重连机制
     /**
      * 获取打印状态
      * @return 异常信息
