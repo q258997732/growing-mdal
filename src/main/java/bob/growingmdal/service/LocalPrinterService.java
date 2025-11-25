@@ -6,6 +6,7 @@ import bob.growingmdal.core.command.DeviceCommand;
 import bob.growingmdal.core.dispatcher.AnnotationDrivenHandler;
 import bob.growingmdal.entity.OperationResultEvent;
 
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,7 +19,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class LocalPrinterService extends AnnotationDrivenHandler {
 
-    @Autowired
+    @Resource
     private ApplicationEventPublisher eventPublisher;
 
     @Value("${printer.local.name}")
