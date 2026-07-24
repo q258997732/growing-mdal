@@ -33,10 +33,10 @@ public class LocalPrinterService extends AnnotationDrivenHandler implements Life
         this.objectMapper = objectMapper;
     }
 
-    @Value("${printer.local.name}")
+    @Value("${adapter.printer-local-name}")
     private String printerName;
 
-    @Value("${printer.local.allowed-dir:${user.dir}/print-files}")
+    @Value("${adapter.printer-local-allowed-dir:${user.dir}/print-files}")
     private String allowedDir;
 
     @DeviceOperation(DeviceType = "Printer", ProcessCommand = "PrintLocalPDF")

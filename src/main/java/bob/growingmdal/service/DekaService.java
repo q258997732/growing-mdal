@@ -37,10 +37,10 @@ public class DekaService extends AnnotationDrivenHandler implements LifecycleMan
     private final DekaReaderAdapter dekaReaderAdapter;
     private final String workDir;
 
-    @Value("${deka.reader.wait.time}")
+    @Value("${adapter.deka-reader-wait-time}")
     private int timeout;
 
-    @Value("${deka.reader.loop.period}")
+    @Value("${adapter.deka-reader-loop-period}")
     private int interval = 2000;
 
     @Autowired

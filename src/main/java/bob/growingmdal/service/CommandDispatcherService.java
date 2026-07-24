@@ -4,6 +4,7 @@ import bob.growingmdal.core.command.DeviceCommand;
 import bob.growingmdal.core.dispatcher.CommandRegistry;
 import bob.growingmdal.core.dispatcher.HandlerMapping;
 import bob.growingmdal.core.dispatcher.HandlerMethodInvoker;
+import bob.growingmdal.validation.CommandValidator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +22,8 @@ public class CommandDispatcherService {
     }
 
     public String dispatch(DeviceCommand command) {
+        CommandValidator.validate(command);
+
         log.debug("Dispatching command: device={}, cmd={}",
                 command.getDeviceType(), command.getProcessCommand());
 

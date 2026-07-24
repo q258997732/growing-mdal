@@ -87,4 +87,26 @@ class DekaServiceUnitTest {
     void shouldCancelCheck() {
         assertThat(service.cancelIdCardCheck()).isEqualTo("No ID card check in progress to cancel");
     }
+
+    @Test
+    void shouldReturnTestMessage() {
+        assertThat(service.test()).isEqualTo("invoke test success. ");
+    }
+
+    @Test
+    void shouldCheckCardExists() {
+        when(adapter.dc_init(anyShort(), anyInt())).thenReturn(1);
+        when(adapter.dc_beep(anyInt(), anyShort())).thenReturn((short) 0);
+        when(adapter.dc_find_i_d(anyInt())).thenReturn((short) 0);
+        when(adapter.dc_exit(anyInt())).thenReturn((short) 0);
+
+        assertThat(service.IdCardExists()).isTrue();
+    }
+
+    @Test
+    void shouldReturnDownHealthWhenInitFails() {
+        when(adapter.dc_init(anyShort(), anyInt())).thenReturn(-1);
+
+        assertThat(service.health().getStatus().getCode()).isEqualTo("DOWN");
+    }
 }

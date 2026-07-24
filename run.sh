@@ -1,21 +1,15 @@
-@echo off
-setlocal enabledelayedexpansion
+#!/bin/bash
+set -e
 
-:: 获取当前 Java 主版本号（支持 1.8/9/17/21 等格式）
-for /f "tokens=3" %%g in ('java -version 2^>^&1 ^| findstr /i "version"') do (
-    set fullVer=%%g
-    set fullVer=!fullVer:"=!
-)
-:: 提取主版本
-for /f "delims=.- tokens=1-2" %%v in ("!fullVer!") do (
-    if "%%v"=="1" (set major=%%w) else (set major=%%v)
-)
+JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}' | cut -d. -f1)
+if [[ "$JAVA_VERSION" =~ ^1$ ]]; then
+    JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}' | cut -d. -f2)
+fi
 
-:: 判断
-if !major! GEQ 17 (
-    echo [INFO] Java 17+ detected, starting growing-mdal...
-    java -jar growing-mdal-1.0.2.jar
-) else (
-    echo [ERROR] Java 17 or higher is required. Current version: !fullVer!
-    pause
-)
+if [ "$JAVA_VERSION" -lt 17 ]; then
+    echo "[ERROR] Java 17 or higher is required. Current version: $(java -version 2>&1 | awk -F '"' '/version/ {print $2}')"
+    exit 1
+fi
+
+echo "[INFO] Java $JAVA_VERSION detected, starting growing-mdal..."
+java -jar growing-mdal-1.0.3.jar "$@"

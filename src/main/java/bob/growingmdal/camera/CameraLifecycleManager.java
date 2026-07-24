@@ -17,13 +17,13 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class CameraLifecycleManager {
 
-    @Value("${nantian.camera.url}")
+    @Value("${adapter.nantian-camera-url}")
     private String cameraUrl;
-    @Value("${nantian.camera.enable}")
+    @Value("${adapter.nantian-camera-enable}")
     private boolean enable;
-    @Value("${nantian.camera.auto.reconnect}")
+    @Value("${adapter.nantian-camera-auto-reconnect}")
     private boolean autoReconnect;
-    @Value("${nantian.camera.auto.reconnect.interval}")
+    @Value("${adapter.nantian-camera-auto-reconnect-interval}")
     private int autoReconnectInterval;
 
     @Getter

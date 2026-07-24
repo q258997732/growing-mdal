@@ -82,6 +82,12 @@ java -jar build/libs/growing-mdal-1.0.3.jar
 # 报告位于 build/reports/jacoco/test/html/index.html
 ```
 
+当前 JaCoCo 覆盖率为 **70%**（核心业务逻辑），目标为 80%。硬件相关代码（`adapter`、`util`）与命令执行器（`CameraCommandExecutor`）因依赖真实硬件，已排除在覆盖率统计之外；其余业务代码建议保持 80% 以上。
+
+### 持续集成
+
+项目包含 GitHub Actions 工作流 `.github/workflows/ci.yml`，每次 push/PR 会自动运行 `./gradlew clean build`。
+
 ---
 
 ## 配置说明
@@ -97,11 +103,19 @@ java -jar build/libs/growing-mdal-1.0.3.jar
 | `MANAGEMENT_PORT` | Actuator 健康检查端口 | `9090` |
 | `DEKA_WORK_DIR` | 德卡 DLL 工作目录，用于临时写入照片文件 | `${user.dir}/src/main/resources/lib/deka_T10-MX4_x64` |
 | `PRINTER_LOCAL_NAME` | 本地打印机名称 | `Lexmark MS439dn` |
+| `PRINTER_LOCAL_ALLOWED_DIR` | 本地打印允许的基础目录 | `${user.dir}/print-files` |
 | `LEXMARK_IP` | Lexmark 打印机 IP | `192.168.107.112` |
+| `LEXMARK_SNMP_PORT` | Lexmark SNMP 端口 | `161` |
 | `LEXMARK_COMMUNITY` | Lexmark SNMP community | `public` |
+| `LEXMARK_SNMP_TIMEOUT` | Lexmark SNMP 超时（毫秒） | `5000` |
+| `LEXMARK_SNMP_RETRY` | Lexmark SNMP 重试次数 | `3` |
 | `NANTIAN_URL` | 南天摄像头 WebSocket URL | `ws://192.168.107.103:7000` |
-| `NANTIAN_ENABLED` | 是否启用南天摄像头 | `false` |
-| `NANTIAN_AUTO_RECONNECT` | 摄像头断线后是否自动重连 | `false` |
+| `NANTIAN_CAMERA_ENABLE` | 是否启用南天摄像头 | `false` |
+| `NANTIAN_CAMERA_AUTO_RECONNECT` | 摄像头断线后是否自动重连 | `false` |
+| `NANTIAN_CAMERA_AUTO_RECONNECT_INTERVAL` | 自动重连间隔（毫秒） | `5000` |
+| `NANTIAN_CAMERA_RESPONSE_TIMEOUT` | 摄像头响应超时（秒） | `3` |
+| `NANTIAN_CAMERA_VIDEO_TIME` | 采集视频时间（毫秒） | `3000` |
+| `NANTIAN_CAMERA_DETECT_TIME` | 人脸检测超时（秒） | `10` |
 
 ### application.properties 示例
 
@@ -118,27 +132,29 @@ management.server.port=${MANAGEMENT_PORT:9090}
 ### adapter.properties 示例
 
 ```properties
-printer.local.name=${PRINTER_LOCAL_NAME:Lexmark MS439dn}
-printer.lexmark.ip=${LEXMARK_IP:192.168.107.112}
-printer.lexmark.snmp.port=161
-printer.lexmark.snmp.community=${LEXMARK_COMMUNITY:public}
-printer.lexmark.snmp.timeout=3000
-printer.lexmark.snmp.retries=3
+adapter.printer-local-name=${PRINTER_LOCAL_NAME:Lexmark MS439dn}
+adapter.printer-local-allowed-dir=${PRINTER_LOCAL_ALLOWED_DIR:${user.dir}/print-files}
+adapter.printer-lexmark-ip=${LEXMARK_IP:192.168.107.112}
+adapter.printer-lexmark-snmp-port=${LEXMARK_SNMP_PORT:161}
+adapter.printer-lexmark-snmp-community=${LEXMARK_COMMUNITY:public}
+adapter.printer-lexmark-snmp-timeout=${LEXMARK_SNMP_TIMEOUT:5000}
+adapter.printer-lexmark-snmp-retry=${LEXMARK_SNMP_RETRY:3}
 
-deka.reader.usb.port=100
-deka.reader.baud=115200
-deka.reader.wait.time=30000
-deka.reader.loop.period=2000
-deka.reader.workdir=${DEKA_WORK_DIR:${user.dir}/src/main/resources/lib/deka_T10-MX4_x64}
+adapter.deka-work-dir=${DEKA_WORK_DIR:${user.dir}/src/main/resources/lib/deka_T10-MX4_x64}
+adapter.deka-reader-usb-port=${DEKA_READER_USB_PORT:100}
+adapter.deka-reader-baud=${DEKA_READER_BAUD:115200}
+adapter.deka-reader-wait-time=${DEKA_READER_WAIT_TIME:30000}
+adapter.deka-reader-loop-period=${DEKA_READER_LOOP_PERIOD:2000}
 
-nantian.camera.url=${NANTIAN_URL:ws://192.168.107.103:7000}
-nantian.camera.enable=${NANTIAN_ENABLED:false}
-nantian.camera.auto.reconnect=${NANTIAN_AUTO_RECONNECT:false}
-nantian.camera.auto.reconnect.interval=5000
-nantian.camera.response.timeout=10
-nantian.camera.msg.clean.interval=600000
-nantian.camera.video.time=3000
-nantian.camera.face.detect.time=3000
+adapter.nantian-camera-url=${NANTIAN_URL:ws://192.168.107.103:7000}
+adapter.nantian-camera-enable=${NANTIAN_CAMERA_ENABLE:false}
+adapter.nantian-camera-auto-reconnect=${NANTIAN_CAMERA_AUTO_RECONNECT:false}
+adapter.nantian-camera-auto-reconnect-interval=${NANTIAN_CAMERA_AUTO_RECONNECT_INTERVAL:5000}
+adapter.nantian-camera-response-timeout=${NANTIAN_CAMERA_RESPONSE_TIMEOUT:3}
+adapter.nantian-camera-video-time=${NANTIAN_CAMERA_VIDEO_TIME:3000}
+adapter.nantian-camera-detect-time=${NANTIAN_CAMERA_DETECT_TIME:10}
+adapter.nantian-msg-clean-interval=${NANTIAN_MSG_CLEAN_INTERVAL:600000}
+adapter.nantian-video-clean-interval=${NANTIAN_VIDEO_CLEAN_INTERVAL:600000}
 ```
 
 ---
@@ -331,7 +347,7 @@ growing-mdal
 
 ### Q5: 健康检查显示摄像头 DOWN
 
-- 当 `nantian.camera.enable=false` 时，摄像头健康检查预期为 `DOWN`。
+- 当 `NANTIAN_CAMERA_ENABLE=false` 时，摄像头健康检查预期为 `DOWN`。
 - 当启用后仍 DOWN，请检查网络连接与摄像头服务状态。
 
 ---

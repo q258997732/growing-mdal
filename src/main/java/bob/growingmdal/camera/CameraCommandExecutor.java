@@ -39,11 +39,11 @@ public class CameraCommandExecutor implements HardwareCommandHandler {
     private final ExecutorService videoStreamExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService getFaceTemplExecutor = Executors.newSingleThreadExecutor();
 
-    @Value("${nantian.camera.response.timeout}")
+    @Value("${adapter.nantian-camera-response-timeout}")
     private int responseTimeout;
-    @Value("${nantian.camera.video.time}")
+    @Value("${adapter.nantian-camera-video-time}")
     private int videoTime;
-    @Value("${nantian.camera.detect.time}")
+    @Value("${adapter.nantian-camera-detect-time}")
     private int detectTime;
 
     private Instant lastGetVideoTime;

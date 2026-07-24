@@ -42,7 +42,7 @@ public class NativeLibraryLoader {
 
     private static Path extractLibrary(String libName, String resourcePath) throws IOException {
         log.info("Loading library: {}" , resourcePath + libName);
-        InputStream is = io.netty.util.internal.NativeLibraryLoader.class.getResourceAsStream(resourcePath + libName);
+        InputStream is = NativeLibraryLoader.class.getResourceAsStream(resourcePath + libName);
         if (is == null) {
             throw new IOException("Resource not found: " + resourcePath + libName);
         }

@@ -18,13 +18,13 @@ public class LexmarkPrinterService extends AnnotationDrivenHandler implements Li
 
     LexmarkPrinterAdapter lexmarkPrinterAdapter;
 
-    @Value("${printer.lexmark.ip}")
+    @Value("${adapter.printer-lexmark-ip}")
     private String ip;
-    @Value("${printer.lexmark.snmp.community}")
+    @Value("${adapter.printer-lexmark-snmp-community}")
     private String community;
-    @Value("${printer.lexmark.snmp.timeout}")
+    @Value("${adapter.printer-lexmark-snmp-timeout}")
     private int timeout;
-    @Value("${printer.lexmark.snmp.retry}")
+    @Value("${adapter.printer-lexmark-snmp-retry}")
     private int retries;
 
 

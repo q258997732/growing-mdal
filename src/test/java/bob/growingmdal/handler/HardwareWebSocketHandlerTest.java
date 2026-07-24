@@ -56,4 +56,39 @@ class HardwareWebSocketHandlerTest {
         assertThat(messageCaptor.getValue().getPayload()).contains("\"deviceType\":\"Printer\"");
         assertThat(messageCaptor.getValue().getPayload()).contains("\"processCommand\":\"PrintLocalPDF\"");
     }
+
+    @Test
+    void shouldRejectInvalidJson() throws Exception {
+        WebSocketSession session = mock(WebSocketSession.class);
+        when(session.isOpen()).thenReturn(true);
+        TextMessage message = new TextMessage("not-json");
+
+        handler.handleTextMessage(session, message);
+
+        ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
+        verify(taskExecutor).execute(runnableCaptor.capture());
+        runnableCaptor.getValue().run();
+
+        ArgumentCaptor<TextMessage> messageCaptor = ArgumentCaptor.forClass(TextMessage.class);
+        verify(session).sendMessage(messageCaptor.capture());
+        assertThat(messageCaptor.getValue().getPayload()).contains("INVALID_JSON");
+    }
+
+    @Test
+    void shouldHandleDispatcherError() throws Exception {
+        WebSocketSession session = mock(WebSocketSession.class);
+        when(session.isOpen()).thenReturn(true);
+        TextMessage message = new TextMessage("{\"DeviceType\":\"Printer\",\"ProcessCommand\":\"PrintLocalPDF\"}");
+        when(dispatcher.dispatch(any())).thenThrow(new RuntimeException("boom"));
+
+        handler.handleTextMessage(session, message);
+
+        ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
+        verify(taskExecutor).execute(runnableCaptor.capture());
+        runnableCaptor.getValue().run();
+
+        ArgumentCaptor<TextMessage> messageCaptor = ArgumentCaptor.forClass(TextMessage.class);
+        verify(session).sendMessage(messageCaptor.capture());
+        assertThat(messageCaptor.getValue().getPayload()).contains("INVALID_COMMAND");
+    }
 }

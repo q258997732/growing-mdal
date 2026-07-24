@@ -5,6 +5,7 @@ import bob.growingmdal.entity.OperationResultEvent;
 import bob.growingmdal.entity.response.CommandResponse;
 import bob.growingmdal.service.CommandDispatcherService;
 import bob.growingmdal.config.WebSocketSessionManager;
+import bob.growingmdal.validation.CommandValidator;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -77,17 +78,7 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
             DeviceCommand command = mapper.readValue(payload, DeviceCommand.class);
             command.setFunction("OutPut");
 
-            // 详细日志记录解析结果
-            log.debug("Parsed command: deviceType={}, processCommand={}",
-                    command.getDeviceType(), command.getProcessCommand());
-
-            // 关键验证：确保必要字段存在
-            if (command.getDeviceType() == null || command.getDeviceType().isBlank()) {
-                throw new IllegalArgumentException("Missing required field: deviceType");
-            }
-            if (command.getProcessCommand() == null || command.getProcessCommand().isBlank()) {
-                throw new IllegalArgumentException("Missing required field: processCommand");
-            }
+            CommandValidator.validate(command);
 
             command.setSession(session);
 
