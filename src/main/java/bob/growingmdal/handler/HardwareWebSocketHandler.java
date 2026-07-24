@@ -2,6 +2,7 @@ package bob.growingmdal.handler;
 
 import bob.growingmdal.core.command.DeviceCommand;
 import bob.growingmdal.entity.OperationResultEvent;
+import bob.growingmdal.entity.response.CommandResponse;
 import bob.growingmdal.service.CommandDispatcherService;
 import bob.growingmdal.config.WebSocketSessionManager;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -19,8 +20,6 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
-import java.time.Instant;
-import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 @Slf4j
@@ -32,7 +31,7 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
     }
 
     private static final CopyOnWriteArrayList<WebSocketSession> sessions = new CopyOnWriteArrayList<>();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final CommandDispatcherService dispatcher;
     private final WebSocketSessionManager sessionManager;
     private final TaskExecutor taskExecutor;
@@ -40,14 +39,17 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
     @Autowired
     public HardwareWebSocketHandler(CommandDispatcherService dispatcher,
                                     WebSocketSessionManager sessionManager,
-                                    @Qualifier("messageTaskExecutor") TaskExecutor taskExecutor) {
+                                    @Qualifier("messageTaskExecutor") TaskExecutor taskExecutor,
+                                    ObjectMapper objectMapper) {
         this.dispatcher = dispatcher;
         this.sessionManager = sessionManager;
         this.taskExecutor = taskExecutor;
+        this.objectMapper = objectMapper;
     }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
+        sessions.add(session);
         sessionManager.registerSession(session.getId(), session);
         sendToClient(session, "CONNECTED");
         log.info("Session established: {}", session.getId());
@@ -94,32 +96,44 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            Object result = dispatcher.dispatch(command);
-            if (result != null)
-                sendToClient(session, result.toString());
-            else
-                sendToClient(session, "fail");
+            String result = dispatcher.dispatch(command);
+            sendCommandResponse(session, command, true, result, null, null);
 
         } catch (Exception e) {
             log.debug("Failed to process message: {}", payload, e);
-            sendError(session, "INVALID_COMMAND",
-                    "Error: " + e.getMessage());
+            sendError(session, "INVALID_COMMAND", "Error: " + e.getMessage());
+        }
+    }
+
+    private void sendCommandResponse(WebSocketSession session, DeviceCommand command,
+                                     boolean success, String data, String errorCode, String errorMessage) {
+        if (session == null || !session.isOpen()) {
+            return;
+        }
+        CommandResponse response = new CommandResponse(
+                command.getFunction(),
+                command.getDeviceType(),
+                command.getProcessCommand(),
+                success,
+                data,
+                errorCode,
+                errorMessage
+        );
+        try {
+            session.sendMessage(new TextMessage(objectMapper.writeValueAsString(response)));
+        } catch (Exception e) {
+            log.error("Failed to send command response", e);
         }
     }
 
     private void sendError(WebSocketSession session, String errorCode, String errorMessage) {
-        // 添加会话状态检查
         if (session == null || !session.isOpen()) {
-            return; // 会话已关闭，不再发送错误
+            return;
         }
-
+        CommandResponse response = new CommandResponse(
+                "OutPut", null, null, false, null, errorCode, errorMessage);
         try {
-            Map<String, Object> error = Map.of(
-                    "error", errorCode,
-                    "message", errorMessage,
-                    "timestamp", Instant.now().toString()
-            );
-            session.sendMessage(new TextMessage(objectMapper.writeValueAsString(error)));
+            session.sendMessage(new TextMessage(objectMapper.writeValueAsString(response)));
         } catch (Exception e) {
             log.error("Failed to send error message", e);
         }
@@ -129,7 +143,6 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
     public void handleTransportError(WebSocketSession session, Throwable exception) {
         log.warn("Transport error for session {}: {}", session.getId(), exception.getMessage());
 
-        // 添加会话状态检查
         if (session != null && session.isOpen()) {
             sendError(session, "TRANSPORT_ERROR", exception.getMessage());
         }
@@ -137,6 +150,7 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        sessions.remove(session);
         sessionManager.unregisterSession(session.getId());
         log.info("Session closed: {} with status {}", session.getId(), status);
     }
@@ -148,12 +162,17 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
      * @param message 要发送的消息内容
      */
     public static void sendToClient(WebSocketSession session, String message) {
-        try {
-            if (session.isOpen()) {
-                session.sendMessage(new TextMessage(message));
+        if (session == null) {
+            return;
+        }
+        synchronized (session) {
+            try {
+                if (session.isOpen()) {
+                    session.sendMessage(new TextMessage(message));
+                }
+            } catch (IOException e) {
+                log.error(e.getMessage(), e);
             }
-        } catch (IOException e) {
-            log.error(e.getMessage(), e);
         }
     }
 
@@ -164,13 +183,7 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
      */
     public static void broadcast(String message) {
         for (WebSocketSession session : sessions) {
-            try {
-                if (session.isOpen()) {
-                    session.sendMessage(new TextMessage(message));
-                }
-            } catch (IOException e) {
-                log.error(e.getMessage(), e);
-            }
+            sendToClient(session, message);
         }
     }
 
@@ -188,8 +201,7 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
         sessionManager.closeAllSessions();
     }
 
-    private boolean isCameraCommand(DeviceCommand command){
+    private boolean isCameraCommand(DeviceCommand command) {
         return command.getProcessCommand().equals("Camera");
     }
-
 }

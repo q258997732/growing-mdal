@@ -2,7 +2,6 @@ package bob.growingmdal.entity.baseinfo;
 
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.configurationprocessor.json.JSONObject;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -117,27 +116,6 @@ public class DomesticIDCard implements IDCard {
                 ", \"reserved\":\"" + reserved + "\"" +
                 ", \"photo\":\"" + photo + "\"" +
                 "}";
-    }
-
-    public JSONObject toJson() {
-        JSONObject json = new JSONObject();
-        try {
-            json.put("name", name);
-            json.put("sex", sex);
-            json.put("nation", nation);
-            json.put("birthDay", birthDay);
-            json.put("address", address);
-            json.put("idNumber", idNumber);
-            json.put("department", department);
-            json.put("expireStartDay", expireStartDay);
-            json.put("expireEndDay", expireEndDay);
-            json.put("reserved", reserved);
-            json.put("photo", photo);
-        } catch (Exception e) {
-            log.error("DomesticIDCard toJson error: {}", e.getMessage());
-            return null;
-        }
-        return json;
     }
 
     // Getter and Setter methods for sex with conversion

@@ -13,6 +13,7 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.socket.server.standard.ServletServerContainerFactoryBean;
 
 @Configuration
@@ -28,14 +29,17 @@ public class WebSocketConfig implements WebSocketConfigurer {
     private final CommandDispatcherService dispatcherService;
     private final WebSocketSessionManager sessionManager;
     private final TaskExecutor taskExecutor;
+    private final ObjectMapper objectMapper;
 
     @Autowired
     public WebSocketConfig(CommandDispatcherService dispatcherService,
                            WebSocketSessionManager sessionManager,
-                           @Qualifier("messageTaskExecutor") TaskExecutor taskExecutor) {
+                           @Qualifier("messageTaskExecutor") TaskExecutor taskExecutor,
+                           ObjectMapper objectMapper) {
         this.dispatcherService = dispatcherService;
         this.sessionManager = sessionManager;
         this.taskExecutor = taskExecutor;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -52,7 +56,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     @Bean
     public HardwareWebSocketHandler hardwareWebSocketHandler() {
-        return new HardwareWebSocketHandler(dispatcherService, sessionManager, taskExecutor);
+        return new HardwareWebSocketHandler(dispatcherService, sessionManager, taskExecutor, objectMapper);
     }
 
     @Lazy

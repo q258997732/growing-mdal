@@ -2,6 +2,9 @@ package bob.growingmdal.entity;
 
 import java.nio.ByteBuffer;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.PriorityBlockingQueue;
 
 public class TimeSortedBufferQueue {
@@ -42,28 +45,35 @@ public class TimeSortedBufferQueue {
      */
     public PriorityBlockingQueue<TimestampedBuffer> getAfter(Instant time) {
         PriorityBlockingQueue<TimestampedBuffer> result = new PriorityBlockingQueue<>();
-        queue.forEach(tb -> {
-            if (tb.getTimestamp().isAfter(time)) {
-                result.add(tb);
-            }
-        });
+        synchronized (queue) {
+            queue.forEach(tb -> {
+                if (tb.getTimestamp().isAfter(time)) {
+                    result.add(tb);
+                }
+            });
+        }
         return result;
     }
 
     /**
      * 获取某个时间段内的数据（并移除）
+     *
      * @param start 时间段开始
-     * @param end 时间段结束
+     * @param end   时间段结束
      * @return 获取到的数据
      */
     public PriorityBlockingQueue<TimestampedBuffer> getBetweenAndRemove(Instant start, Instant end) {
         PriorityBlockingQueue<TimestampedBuffer> result = new PriorityBlockingQueue<>();
-        queue.forEach(tb -> {
-            if (!tb.getTimestamp().isBefore(start) && !tb.getTimestamp().isAfter(end)) {
-                result.add(tb);
+        synchronized (queue) {
+            Iterator<TimestampedBuffer> it = queue.iterator();
+            while (it.hasNext()) {
+                TimestampedBuffer tb = it.next();
+                if (!tb.getTimestamp().isBefore(start) && !tb.getTimestamp().isAfter(end)) {
+                    result.add(tb);
+                    it.remove();
+                }
             }
-        });
-        queue.removeAll(result);
+        }
         return result;
     }
 

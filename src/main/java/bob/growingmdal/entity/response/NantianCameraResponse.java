@@ -17,22 +17,7 @@ public class NantianCameraResponse {
         this.data = data;
     }
 
-    public String toString() {
-        return "{" +
-                "code=" + code +
-                ", message='" + message + '\'' +
-                ", data='" + data + '\'' +
-                '}';
-    }
-
-    // 转换为Json字符串
-    public String toJson() {
-        return "{\"code\":" + code + ",\"message\":\"" + message + "\",\"data\":\"" + data + "\"}";
-    }
-
     public boolean isSuccess() {
         return code == 200;
     }
-
 }
-

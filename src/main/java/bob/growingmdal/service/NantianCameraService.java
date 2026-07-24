@@ -1,806 +1,89 @@
 package bob.growingmdal.service;
 
-import bob.growingmdal.annotation.DeviceOperation;
-import bob.growingmdal.core.command.DeviceCommand;
-import bob.growingmdal.core.dispatcher.AnnotationDrivenHandler;
-import bob.growingmdal.core.exception.PreOperationException;
-import bob.growingmdal.entity.OperationResultEvent;
-import bob.growingmdal.entity.TimeSortedBufferQueue;
-import bob.growingmdal.entity.TimestampedBuffer;
-import bob.growingmdal.entity.response.NantianCameraResponse;
-import bob.growingmdal.util.ZZWsResponseParser;
+import bob.growingmdal.camera.CameraCommandExecutor;
+import bob.growingmdal.camera.CameraLifecycleManager;
+import bob.growingmdal.camera.CameraMessageRouter;
+import bob.growingmdal.hardware.LifecycleManaged;
 import jakarta.annotation.PostConstruct;
-import jakarta.annotation.Resource;
+import jakarta.annotation.PreDestroy;
 import jakarta.websocket.*;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.configurationprocessor.json.JSONException;
-import org.springframework.boot.configurationprocessor.json.JSONObject;
-import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.boot.actuate.health.Health;
 import org.springframework.stereotype.Service;
 
-
-import java.net.URI;
 import java.nio.ByteBuffer;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayDeque;
-import java.util.Base64;
-import java.util.Iterator;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
 @Service
 @ClientEndpoint
-public class NantianCameraService extends AnnotationDrivenHandler {
+public class NantianCameraService implements LifecycleManaged {
 
-    @Resource
-    private ApplicationEventPublisher eventPublisher;
+    private final CameraLifecycleManager lifecycleManager;
+    private final CameraMessageRouter messageRouter;
+    private final CameraCommandExecutor commandExecutor;
 
-    @Getter
-    TimeSortedBufferQueue binaryQueue = new TimeSortedBufferQueue();
-    @Getter
-    private final ArrayDeque<String> messageQueue = new ArrayDeque<>();
-    @Getter
-    private final ConcurrentHashMap<String, AtomicBoolean> cameraStatus = new ConcurrentHashMap<>();
-    private final CountDownLatch messageLatch = new CountDownLatch(1);
-    private volatile CountDownLatch binaryLatch = new CountDownLatch(1);
-    private final ScheduledExecutorService cleaner = Executors.newSingleThreadScheduledExecutor();
-    private final ScheduledExecutorService autoConnectExecutor = Executors.newSingleThreadScheduledExecutor();
-    private final ExecutorService faceDetectionExecutor = Executors.newSingleThreadExecutor();
-    private final ExecutorService videoStreamExecutor = Executors.newSingleThreadExecutor();
-    private final ExecutorService getFaceTemplExecutor = Executors.newSingleThreadExecutor();
-
-    private Session session;
-    private long msgStartTime;
-    private long binaryStartTime;
-    @Value("${nantian.msg.clean.interval}")
-    private int msgCleanTimePeriod;
-    @Value("${nantian.video.clean.interval}")
-    private int binaryCleanTimePeriod;
-    @Value("${nantian.camera.url}")
-    private String cameraUrl;
-    @Value("${nantian.camera.response.timeout}")
-    private int responseTimeout;
-    @Value("${nantian.camera.video.time}")
-    private int videoTime;
-    @Value("${nantian.camera.detect.time}")
-    private int detectTime;
-    @Value("${nantian.camera.enable}")
-    private boolean enable;
-    @Value("${nantian.camera.auto.reconnect}")
-    private boolean autoReconnect;
-    @Value("${nantian.camera.auto.reconnect.interval}")
-    private int autoReconnectInterval;
-
-    private Instant lastGetVideoTime;
-    private Instant lastFaceDetectTime;
+    @Autowired
+    public NantianCameraService(CameraLifecycleManager lifecycleManager,
+                                CameraMessageRouter messageRouter,
+                                CameraCommandExecutor commandExecutor) {
+        this.lifecycleManager = lifecycleManager;
+        this.messageRouter = messageRouter;
+        this.commandExecutor = commandExecutor;
+    }
 
     @PostConstruct
     public void init() {
-        // 初始化开关
-        cameraStatus.put("cameraOpen", new AtomicBoolean(false));
-        cameraStatus.put("faceDetect", new AtomicBoolean(false));
-        cameraStatus.put("getFaceStart", new AtomicBoolean(false));
-        cameraStatus.put("getVideo", new AtomicBoolean(false));
-        cameraStatus.put("videoCollect", new AtomicBoolean(true));
-        cameraStatus.put("isReconnect", new AtomicBoolean(false));
+        lifecycleManager.setEndpoint(this);
+        lifecycleManager.setOnReconnect(() -> commandExecutor.startNtCamera());
+        initialize();
+    }
 
-        binaryStartTime = msgStartTime = System.currentTimeMillis();
-        cleaner.scheduleAtFixedRate(cleanupTask, 0, 5, TimeUnit.SECONDS);
-        // 定时自动连接
-
-        if (!enable) {
-            log.info("Nantian camera service is disabled.");
-            return;
-        }
-
-        connect();
-        startNtCamera();
-
-        // 开启自动连接
-        if(autoReconnect) {
-            autoConnectExecutor.scheduleAtFixedRate(autoConnect, 0, autoReconnectInterval, TimeUnit.MILLISECONDS);
+    @Override
+    public void initialize() {
+        lifecycleManager.initialize();
+        if (lifecycleManager.isEnabled()) {
+            commandExecutor.startNtCamera();
         }
     }
 
-    private boolean connect() {
-        if (session != null && session.isOpen()) {
-            return false;
+    @Override
+    public Health health() {
+        if (lifecycleManager.isConnected()) {
+            return Health.up().withDetail("device", "Nantian Camera").build();
         }
-        try {
-            WebSocketContainer container = ContainerProvider.getWebSocketContainer();
-            container.setDefaultMaxBinaryMessageBufferSize(100 * 1024 * 1024);
-            container.setDefaultMaxTextMessageBufferSize(50 * 1024 * 1024);
-            container.connectToServer(this, new URI(cameraUrl));
-            log.info("Connected to server: {}", cameraUrl);
-            cameraStatus.put("isReconnect", new AtomicBoolean(true));
-        } catch (Exception e) {
-            log.error("Failed to connect nantian WebSocket : {}", e.getMessage());
-            return false;
-        }
-        return true;
+        return Health.down().withDetail("device", "Nantian Camera").withDetail("reason", "not connected").build();
+    }
+
+    @Override
+    @PreDestroy
+    public void shutdown() {
+        commandExecutor.shutdown();
+        lifecycleManager.shutdown();
     }
 
     @OnOpen
     public void onOpen(Session session) {
-        this.session = session;
-        // 永不超时
-        session.setMaxIdleTimeout(0);
+        lifecycleManager.onOpen(session);
     }
 
-    // 处理文本消息
     @OnMessage
     public void onMessage(String message, Session session) {
-//        log.info("Received TEXT message: {}", message);
-        messageQueue.add(message);
-        messageLatch.countDown();
+        messageRouter.onTextMessage(message);
     }
 
-    // 处理二进制消息
     @OnMessage
     public void onMessage(ByteBuffer bytes, Session session) {
-        if (cameraStatus.get("videoCollect").get()) {
-            binaryQueue.add(bytes);
-        } else {
-            binaryLatch.countDown();
-            binaryLatch = new CountDownLatch(1);
-        }
+        messageRouter.onBinaryMessage(bytes);
     }
 
     @OnClose
     public void onClose(Session session, CloseReason closeReason) {
-        cleaner.shutdownNow();
-        faceDetectionExecutor.shutdownNow();
-        videoStreamExecutor.shutdownNow();
-        getFaceTemplExecutor.shutdownNow();
-        log.info("Nantian camera api Session closed: {}", closeReason);
+        lifecycleManager.onClose();
     }
 
     @OnError
     public void onError(Session session, Throwable throwable) {
-//        System.err.println("WebSocket error: ");
-        log.error("WebSocket error: ", throwable);
+        lifecycleManager.onError(throwable);
     }
-
-    public void sendMessage(String message) {
-        try {
-            if (session != null && session.isOpen()) {
-                session.getBasicRemote().sendText(message);
-                log.info("Sent message: {}", message);
-            }
-        } catch (Exception e) {
-            log.error("Failed to send message", e);
-        }
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    // 发送byte
-    public void sendBinary(ByteBuffer byteBuffer) {
-        try {
-            if (session != null && session.isOpen()) {
-                session.getBasicRemote().sendBinary(byteBuffer);
-                log.info("Sent binary: {}", byteBuffer);
-            }
-        } catch (Exception e) {
-            log.error("Failed to send byteBuffer", e);
-        }
-    }
-
-    /**
-     * 定时清理队列
-     */
-    private final Runnable cleanupTask = () -> {
-        synchronized (messageQueue) {
-            synchronized (this) { // 确保线程安全
-                int removedBinary = binaryQueue.size();
-                int removedText = messageQueue.size();
-                long currentTime = System.currentTimeMillis();
-                boolean isClear = false;
-
-                // 清理二进制队列
-                if (currentTime > binaryStartTime + binaryCleanTimePeriod) {
-                    binaryQueue.clear();
-                    isClear = true;
-                    // 重置开始时间
-                    binaryStartTime = System.currentTimeMillis();
-                }
-
-                // 清理文本队列
-                if (currentTime > msgStartTime + msgCleanTimePeriod) {
-                    messageQueue.clear();
-                    isClear = true;
-                    // 重置开始时间
-                    msgStartTime = System.currentTimeMillis();
-                }
-
-                if ((removedBinary > 0 || removedText > 0) && isClear) {
-                    log.info("Cleaned up {} binary and {} text messages", removedBinary, removedText);
-                }
-            }
-        }
-    };
-
-    public NantianCameraResponse sendMessageGetResponse(String message, int timeout) {
-        if (!enable) {
-            return getUnavailableResponse();
-        }
-        boolean received = false;
-        String response = null;
-        String retData = null;
-        sendMessage(message);
-        try {
-            received = messageLatch.await(timeout, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            log.error("Interrupted while waiting for response", e);
-            return new NantianCameraResponse(500, "Internal Server Error", e.getMessage());
-        }
-
-        response = getMsgResponse(message);
-        log.info("response is: {}", response);
-
-        if (message.contains("Capture")) {
-            retData = ZZWsResponseParser.getCaptureBase64(response);
-        } else if (message.contains("GetFaceTemplFromBase64")) {
-            retData = ZZWsResponseParser.getFaceEigenvalueData(response);
-        }
-
-        response = ZZWsResponseParser.parseResponse(response);
-
-        log.info(ZZWsResponseParser.parseResponse(response));
-
-        return new NantianCameraResponse(response.contains("成功") ? 200 : 500, response, retData);
-    }
-
-    public String getMsgResponse(String message) {
-        message = message.split("@")[0];
-        String result = null;
-        for (String str : messageQueue) {
-            if (str.contains(message)) {
-                result = str;
-                messageQueue.removeFirstOccurrence(str);
-                break;
-            }
-        }
-        return result;
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "OpenDevice")
-    public NantianCameraResponse openDevice(int index) {
-        String message = "OpenDevice@" + index;
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-    /**
-     * 打开隐藏设备
-     *
-     * @param index 1-文件摄像头 2-人脸摄像头 3-环境摄像头 4-红外摄像头
-     * @return 响应
-     */
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "OpenHideDevice")
-    public NantianCameraResponse openHideDevice(int index) {
-        String message = "OpenHideDevice@" + index;
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-    /**
-     * 打开隐藏摄像头视频
-     *
-     * @return 响应
-     */
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "OpenHideVideo")
-    public NantianCameraResponse openHideVideo() {
-        String message = "OpenHideVideo";
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "OpenVideo")
-    public NantianCameraResponse openVideo() {
-        String message = "OpenVideo";
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "CloseDevice")
-    public NantianCameraResponse closeDevice() {
-        String message = "CloseDevice";
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "CloseHideDevice")
-    public NantianCameraResponse closeHideDevice() {
-        String message = "CloseHideDevice";
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "UnFaceDetect")
-    public NantianCameraResponse unFaceDetect() {
-        String message = "UnFaceDetect";
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StopGetFace")
-    public NantianCameraResponse stopGetFace() {
-        String message = "StopGetFace";
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "CloseVideo")
-    public NantianCameraResponse closeVideo() {
-        String message = "CloseVideo";
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "CloseHideVideo")
-    public NantianCameraResponse closeHideVideo() {
-        String message = "CloseHideVideo";
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "DeinitFaceMgr")
-    public NantianCameraResponse deinitFaceMgr() {
-        String message = "DeinitFaceMgr";
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "RotateRight")
-    public NantianCameraResponse rotateRight() {
-        String message = "RotateRight";
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "RotateLeft")
-    public NantianCameraResponse rotateLeft() {
-        String message = "RotateLeft";
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "RotateHideRight")
-    public NantianCameraResponse rotateHideRight() {
-        String message = "RotateHideRight";
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "RotateHideLeft")
-    public NantianCameraResponse rotateHideLeft() {
-        String message = "RotateHideLeft";
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "EnableFrFaceImage")
-    public NantianCameraResponse enableFrFaceImage(int type) {
-        String message = "EnableFrFaceImage@" + type;
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-
-    /**
-     * 初始化人脸管理器
-     *
-     * @return 响应
-     */
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "InitFaceMgr")
-    public NantianCameraResponse initFaceMgr() {
-        String message = "InitFaceMgr";
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-
-    /**
-     * 设置摄像头分辨率,设置前需确保已打开摄像头
-     *
-     * @param type   1-YUY2 2-MJPEG
-     * @param width  宽
-     * @param height 高
-     * @return 响应
-     */
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "SetResolution")
-    public NantianCameraResponse setResolution(int type, int width, int height) {
-        if (!cameraStatus.get("cameraOpen").get()) {
-            return new NantianCameraResponse(500, "Camera not open", "");
-        }
-        String message = "SetResolution@" + type + "@" + width + "@" + height;
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-    /**
-     * 设置隐藏摄像头分辨率,设置前需确保已打开摄像头
-     *
-     * @param type   1-YUY2 2-MJPEG
-     * @param width  宽
-     * @param height 高
-     * @return 响应
-     */
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "SetHideResolution")
-    public NantianCameraResponse setHideResolution(int type, int width, int height) {
-        if (!cameraStatus.get("cameraOpen").get()) {
-            return new NantianCameraResponse(500, "Camera not open", "");
-        }
-        String message = "SetHideResolution@" + type + "@" + width + "@" + height;
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-    /**
-     * 拍照 拍照前先确保已打开摄像头
-     *
-     * @param type 图像啊格式: 1-bmp 2-jpg 3-png 4-tiff 5-gif
-     * @return base64图像
-     */
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "Capture")
-    public NantianCameraResponse capture(int type) {
-        String message = "Capture" + "@" + type;
-        return sendMessageGetResponse(message, responseTimeout);
-    }
-
-    /**
-     * 单独拍照，自动打开摄像头与视频并拍摄照片，注意：此方法会完成拍照后会自动关闭摄像头与视频
-     *
-     * @return base64图像
-     */
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "TakePhoto")
-    public NantianCameraResponse takePhoto() {
-        if (!cameraStatus.get("cameraOpen").get()) {
-            return new NantianCameraResponse(500, "Camera not open", "");
-        }
-        NantianCameraResponse result;
-        try {
-            result = capture(1);
-            if (!result.isSuccess()) {
-                throw new PreOperationException("Capture failed");
-            }
-        } catch (PreOperationException e) {
-            return new NantianCameraResponse(500, "Pre Operation fail", e.getMessage());
-        }
-
-        return result;
-    }
-
-    /**
-     * 启动摄像头/隐藏摄像头与视频，初始化人脸识别库
-     *
-     * @return 响应
-     */
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StartNtCamera")
-    public NantianCameraResponse startNtCamera() {
-        if (!enable) {
-            return getUnavailableResponse();
-        }
-        if (cameraStatus.get("cameraOpen").get()) {
-            return new NantianCameraResponse(500, "Camera already open", "");
-        }
-
-        NantianCameraResponse result;
-        try {
-            // 打开摄像头
-            result = openDevice(2);
-            if (!result.isSuccess()) {
-                throw new PreOperationException("Open camera failed");
-            }
-            cameraStatus.get("cameraOpen").set(true);
-
-
-            // 设置分辨率
-            result = setResolution(2, 640, 480);
-            if (!result.isSuccess()) {
-                throw new PreOperationException("Set resolution failed");
-            }
-            // 启动视频
-            result = openVideo();
-            if (!result.isSuccess()) {
-                throw new PreOperationException("Open video failed");
-            }
-            // 向右旋转
-            result = rotateRight();
-            if (!result.isSuccess()) {
-                throw new PreOperationException("Rotate right failed");
-            }
-
-            // 打开隐藏摄像头
-            result = openHideDevice(4);
-            if (!result.isSuccess()) {
-                throw new PreOperationException("Open hide camera failed");
-            }
-            // 设置隐藏摄像头分辨率
-            result = setHideResolution(2, 640, 480);
-            if (!result.isSuccess()) {
-                throw new PreOperationException("Set hide Resolution failed");
-            }
-            // 启动隐藏摄像头视频
-            result = openHideVideo();
-            if (!result.isSuccess()) {
-                throw new PreOperationException("Open hide video failed");
-            }
-            // 向右旋转
-            result = rotateHideRight();
-            if (!result.isSuccess()) {
-                throw new PreOperationException("Rotate right failed");
-            }
-
-            // 启动人脸检测
-            result = enableFrFaceImage(1);
-            if (!result.isSuccess()) {
-                throw new PreOperationException("Enable fr face image failed");
-            }
-
-            // 初始化人脸识别库
-            result = initFaceMgr();
-            // 接口这里有点慢 需要多开几次
-            for (int i = 0; i < 3; i++) {
-                if (result.isSuccess()) {
-                    break;
-                }
-                result = initFaceMgr();
-                try {
-                    Thread.sleep(1000);
-                } catch (Exception e) {
-                    log.error("init face mgr , sleep error : {}", e.getMessage());
-                }
-            }
-            if (!result.isSuccess()) {
-                throw new PreOperationException("Init face mgr failed");
-            }
-
-        } catch (PreOperationException e) {
-            return new NantianCameraResponse(500, "Pre Operation fail", e.getMessage());
-        }
-        return result;
-    }
-
-    /**
-     * 停止摄像头/隐藏摄像头与视频，释放人脸识别库
-     *
-     * @return 响应
-     */
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StopNtCamera")
-    public NantianCameraResponse stopNtCamera() {
-        if (!cameraStatus.get("cameraOpen").get()) {
-            return new NantianCameraResponse(200, "Camera not open", "");
-        }
-        NantianCameraResponse result;
-        cameraStatus.get("cameraOpen").set(false);
-        try {
-            result = closeVideo();
-            if (!result.isSuccess()) {
-                throw new PreOperationException("Close video failed");
-            }
-
-            result = closeHideVideo();
-            if (!result.isSuccess()) {
-                throw new PreOperationException("Close video failed");
-            }
-
-            result = closeDevice();
-            if (!result.isSuccess()) {
-                throw new PreOperationException("Close device failed");
-            }
-
-            result = closeHideVideo();
-            if (!result.isSuccess()) {
-                throw new PreOperationException("Close hide device failed");
-            }
-
-            result = deinitFaceMgr();
-            if (!result.isSuccess()) {
-                throw new PreOperationException("Deinit face mgr failed");
-            }
-        } catch (PreOperationException e) {
-            return new NantianCameraResponse(500, "Pre Operation fail", e.getMessage());
-        }
-        return result;
-    }
-
-    /**
-     * 开始人脸识别
-     *
-     * @param command 1-bmp 2-jpg 3-png 4-tiff 5-gif
-     * @return 调用结果
-     */
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "GetFaceTempl")
-    public NantianCameraResponse getFaceTempl(DeviceCommand command) {
-        NantianCameraResponse result;
-        if (!cameraStatus.get("getFaceStart").compareAndSet(false, true)) {
-            return new NantianCameraResponse(500, "GetFaceTempl already start", "");
-        }
-
-        String message = "GetFaceTempl@2";
-        result = sendMessageGetResponse(message, responseTimeout);
-
-        // 使用线程池提交任务
-        getFaceTemplExecutor.submit(() -> {
-            while (cameraStatus.get("getFaceStart").get() && !Thread.currentThread().isInterrupted()) {
-                synchronized (messageQueue) {
-                    Iterator<String> iterator = messageQueue.iterator();
-                    while (iterator.hasNext()) {
-                        String current = iterator.next();
-                        if (current.contains("FaceResultEvent")) {
-                            log.debug("人脸识别结果: {}", ZZWsResponseParser.parseResponse(current));
-                            command.setTransferData(ZZWsResponseParser.parseResponse(current));
-                            performOperation(command);
-                            iterator.remove();
-                        }
-                    }
-                }
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
-        });
-
-        return result;
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StopGetFaceTempl")
-    public String stopGetFaceTempl() {
-        cameraStatus.get("getFaceStart").set(false);
-//        getFaceTemplExecutor.shutdownNow(); // 立即中断线程
-        return "StopGetFaceTempl success";
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StartGetVideo")
-    public NantianCameraResponse startGetVideo(DeviceCommand command) {
-        if (!cameraStatus.get("cameraOpen").get()) {
-            return new NantianCameraResponse(500, "Camera not open", "");
-        }
-        if (!cameraStatus.get("getVideo").compareAndSet(false, true)) {
-            return new NantianCameraResponse(500, "Video already open", "");
-        }
-        lastGetVideoTime = Instant.now();
-
-        videoStreamExecutor.submit(() -> {
-            while (cameraStatus.get("getVideo").get() && !Thread.currentThread().isInterrupted()) {
-                Instant end = lastGetVideoTime.plus(Duration.ofSeconds(videoTime));
-                if (Instant.now().isAfter(end)) {
-                    cameraStatus.get("getVideo").set(false);
-                    log.info("Get video finish ({}s)", videoTime);
-                }
-                PriorityBlockingQueue<TimestampedBuffer> tmp = binaryQueue.getBetweenAndRemove(lastGetVideoTime, end);
-                tmp.forEach(tb -> {
-                    String base64Str = Base64.getEncoder().encodeToString(tb.getBuffer().array());
-                    command.setTransferData(base64Str);
-                    performOperation(command);
-                });
-            }
-            cameraStatus.get("getVideo").set(false);
-        });
-
-        return new NantianCameraResponse(200, "Get Video start", "");
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StopGetVideo")
-    public String stopGetVideo() {
-        cameraStatus.get("getVideo").set(false);
-//        videoStreamExecutor.shutdownNow();
-        return "Stop Get Video";
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "FaceDetect")
-    public NantianCameraResponse faceDetect(DeviceCommand command) {
-        NantianCameraResponse result = null;
-        if (!cameraStatus.get("faceDetect").compareAndSet(false, true)) {
-            return new NantianCameraResponse(500, "FaceDetect already start", "");
-        }
-
-        String transferDataJson = command.getTransferData();
-        try {
-            transferDataJson = transferDataJson.replace("\\\"", "\"");
-            JSONObject transferData = new JSONObject(transferDataJson);
-
-            String threshold = transferData.getString("threshold");
-            String eigenvalue = transferData.getString("eigenvalue");
-            String message = "FaceDetect" + "@" + eigenvalue + "@" + threshold + "@1";
-            result = sendMessageGetResponse(message, responseTimeout);
-        } catch (JSONException e) {
-            log.error("Error parsing JSON: " + e.getMessage());
-            command.setTransferData("error :" + e.getMessage());
-            return new NantianCameraResponse(400, "Fail", "error :" + e.getMessage());
-        }
-        lastFaceDetectTime = Instant.now();
-
-        if (faceDetectionExecutor.isShutdown()) {
-            faceDetectionExecutor.shutdown();
-        }
-
-        faceDetectionExecutor.submit(() -> {
-            while (cameraStatus.get("faceDetect").get() && !Thread.currentThread().isInterrupted()) {
-                // 判断是否超过预设时间
-                if (lastFaceDetectTime.plus(Duration.ofSeconds(detectTime)).isBefore(Instant.now())) {
-//                    stopFaceDetect();
-                    command.setTransferData("face detect timeout :" + detectTime);
-                    performOperation(command);
-                    stopFaceDetect();
-                }
-                synchronized (messageQueue) {
-                    Iterator<String> iterator = messageQueue.iterator();
-                    while (iterator.hasNext()) {
-                        String current = iterator.next();
-                        if (current.contains("FaceDetectEvent")) {
-                            String parseRet = ZZWsResponseParser.parseResponse(current);
-                            log.debug("人脸比对结果: {}", parseRet);
-                            command.setTransferData(parseRet);
-                            performOperation(command);
-                            iterator.remove();
-                            if (parseRet.contains("成功")) {
-                                stopFaceDetect();
-                            }
-                        }
-                    }
-                }
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-
-            }
-        });
-
-        return result;
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StopFaceDetect")
-    public String stopFaceDetect() {
-        cameraStatus.get("faceDetect").set(false);
-        messageQueue.removeIf(current -> current.contains("FaceDetect"));
-//        faceDetectionExecutor.();
-        return "stop face detect success";
-    }
-
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "GetFaceTemplFromBase64")
-    public NantianCameraResponse getFaceTemplFromBase64(DeviceCommand command) {
-        String base64 = command.getTransferData();
-        String message = "GetFaceTemplFromBase64@" + base64;
-        return sendMessageGetResponse(message, responseTimeout);
-
-    }
-
-    /**
-     * 直接将信息从Service返回client
-     *
-     * @param command 命令
-     */
-    public void performOperation(DeviceCommand command) {
-        command.setFunction("OutPut");
-        eventPublisher.publishEvent(new OperationResultEvent(command.getSession(), command.toString()));
-    }
-
-    @Override
-    public boolean supports(DeviceCommand command) {
-        return "Camera".equals(command.getDeviceType());
-    }
-
-    private NantianCameraResponse getUnavailableResponse() {
-        return new NantianCameraResponse(500, "Internal Server Error", "Nantian camera service is disabled.");
-    }
-
-    private final Runnable autoConnect = () -> {
-        synchronized (this) {
-
-            if(session != null && session.isOpen()){
-                log.debug("auto reconnect : Nantian camera is already connected.");
-                return;
-            }
-
-            log.info("Trying to reconnect to Nantian camera...");
-            boolean bo = connect();
-
-            if (bo) {
-                log.info("Connected to Nantian camera.");
-                // 先关闭
-                if(cameraStatus.get("isReconnect").get()){
-                    stopNtCamera();
-                }
-                NantianCameraResponse result = startNtCamera();
-            }
-        }
-    };
-
 }

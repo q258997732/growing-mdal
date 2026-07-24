@@ -4,8 +4,9 @@ import bob.growingmdal.adapter.LexmarkPrinterAdapter;
 import bob.growingmdal.annotation.DeviceOperation;
 import bob.growingmdal.core.command.DeviceCommand;
 import bob.growingmdal.core.dispatcher.AnnotationDrivenHandler;
-import jakarta.annotation.PostConstruct;
+import bob.growingmdal.hardware.LifecycleManaged;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.actuate.health.Health;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -13,7 +14,7 @@ import java.io.IOException;
 
 @Slf4j
 @Service
-public class LexmarkPrinterService extends AnnotationDrivenHandler {
+public class LexmarkPrinterService extends AnnotationDrivenHandler implements LifecycleManaged {
 
     LexmarkPrinterAdapter lexmarkPrinterAdapter;
 
@@ -27,9 +28,8 @@ public class LexmarkPrinterService extends AnnotationDrivenHandler {
     private int retries;
 
 
-    @PostConstruct
-    public void init() {
-        lexmarkPrinterAdapter = new LexmarkPrinterAdapter(ip, community,timeout);
+    public void initialize() {
+        lexmarkPrinterAdapter = new LexmarkPrinterAdapter(ip, community, timeout);
     }
 
     @DeviceOperation(DeviceType = "LexmarkPrinter", ProcessCommand = "getLexmarkErrStatus")
@@ -69,7 +69,22 @@ public class LexmarkPrinterService extends AnnotationDrivenHandler {
     }
 
     @Override
-    public boolean supports(DeviceCommand command) {
-        return "LexmarkPrinter".equals(command.getDeviceType());
+    public String getDeviceType() {
+        return "LexmarkPrinter";
+    }
+
+    @Override
+    public Health health() {
+        try {
+            String status = lexmarkPrinterAdapter.getPrinterStatus();
+            return Health.up().withDetail("printer", ip).withDetail("status", status).build();
+        } catch (IOException e) {
+            return Health.down(e).withDetail("printer", ip).build();
+        }
+    }
+
+    @Override
+    public void shutdown() {
+        log.info("Lexmark printer service shutdown");
     }
 }

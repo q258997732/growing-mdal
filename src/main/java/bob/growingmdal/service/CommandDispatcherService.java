@@ -1,49 +1,33 @@
 package bob.growingmdal.service;
 
 import bob.growingmdal.core.command.DeviceCommand;
-import bob.growingmdal.core.command.HardwareCommandHandler;
-import bob.growingmdal.core.exception.HardwareOperationException;
+import bob.growingmdal.core.dispatcher.CommandRegistry;
+import bob.growingmdal.core.dispatcher.HandlerMapping;
+import bob.growingmdal.core.dispatcher.HandlerMethodInvoker;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
-import java.util.Optional;
 
 @Slf4j
 @Service
 public class CommandDispatcherService {
-    private final List<HardwareCommandHandler> handlers;
 
-    @Autowired
-    public CommandDispatcherService(List<HardwareCommandHandler> handlers) {
-        this.handlers = handlers;
-        log.info("Loaded {} command handlers", handlers.size());
+    private final CommandRegistry registry;
+    private final HandlerMethodInvoker invoker;
+
+    public CommandDispatcherService(CommandRegistry registry, HandlerMethodInvoker invoker) {
+        this.registry = registry;
+        this.invoker = invoker;
+        log.info("Command dispatcher initialized with {} mappings", registry.size());
     }
 
-    public Object dispatch(DeviceCommand command) {
-        Object result;
+    public String dispatch(DeviceCommand command) {
         log.debug("Dispatching command: device={}, cmd={}",
                 command.getDeviceType(), command.getProcessCommand());
 
-        // 获取支持该命令的处理器
-        Optional<HardwareCommandHandler> handler = handlers.stream()
-                .filter(h -> h.supports(command))
-                .findFirst();
-        log.debug("handler stream count:{} ", handler.stream().count());
+        HandlerMapping mapping = registry.resolve(command)
+                .orElseThrow(() -> new UnsupportedOperationException(
+                        "No handler for: " + command.getDeviceType() + ":" + command.getProcessCommand()));
 
-        // 没找到相应处理器，抛出异常
-        if (handler.isEmpty()) {
-            throw new UnsupportedOperationException(
-                    "No handler for: " + command.getDeviceType() + ":" + command.getProcessCommand());
-        }
-
-        try {
-            result = handler.get().handle(command);
-        } catch (Exception e) {
-            throw new HardwareOperationException(
-                    "Handler execution failed - " + e.getMessage(), e);
-        }
-        return result;
+        return invoker.invoke(mapping, command);
     }
 }

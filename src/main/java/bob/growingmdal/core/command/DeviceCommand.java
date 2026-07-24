@@ -3,10 +3,10 @@ package bob.growingmdal.core.command;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.configurationprocessor.json.JSONException;
-import org.springframework.boot.configurationprocessor.json.JSONObject;
 import org.springframework.web.socket.WebSocketSession;
 
 @Slf4j
@@ -14,71 +14,60 @@ import org.springframework.web.socket.WebSocketSession;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class DeviceCommand {
 
-    public DeviceCommand(){
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    public DeviceCommand() {
     }
 
     /**
-     * 通过JSON字符串构造DeviceMessage
+     * 通过JSON字符串构造DeviceCommand
+     *
      * @param jsonString JSON字符串
      */
-    public DeviceCommand(String jsonString){
+    public DeviceCommand(String jsonString) {
         try {
-            JSONObject jsonObject = new JSONObject(jsonString);
-            this.Function = jsonObject.getString("Function");
-            this.DeviceType = jsonObject.getString("DeviceType");
-            this.ProcessCommand = jsonObject.getString("ProcessCommand");
-            this.TransferData = jsonObject.getString("TransferData");
-        } catch (JSONException e) {
-            log.error("String convert to DeviceMessage err : {}",e.getMessage());
+            DeviceCommand parsed = MAPPER.readValue(jsonString, DeviceCommand.class);
+            this.Function = parsed.Function;
+            this.DeviceType = parsed.DeviceType;
+            this.ProcessCommand = parsed.ProcessCommand;
+            this.TransferData = parsed.TransferData;
+        } catch (Exception e) {
+            log.error("String convert to DeviceCommand error: {}", e.getMessage());
         }
     }
 
-    public DeviceCommand(String Function, String DeviceType, String ProcessCommand, String TransferData){
+    public DeviceCommand(String Function, String DeviceType, String ProcessCommand, String TransferData) {
         this.Function = Function;
         this.DeviceType = DeviceType;
         this.ProcessCommand = ProcessCommand;
         this.TransferData = TransferData;
     }
 
+    @JsonProperty("Function")
     @JsonAlias({"Function", "function", "func"})
     private String Function;       // Input/Output
 
-    @JsonProperty("deviceType")
-    @JsonAlias({"DeviceType", "DEVICE_TYPE", "device_type"})
+    @JsonProperty("DeviceType")
+    @JsonAlias({"DeviceType", "DEVICE_TYPE", "device_type", "deviceType"})
     private String DeviceType;     // 设备类型
 
-    @JsonProperty("processCommand")
-    @JsonAlias({"ProcessCommand", "COMMAND", "command"})
+    @JsonProperty("ProcessCommand")
+    @JsonAlias({"ProcessCommand", "COMMAND", "command", "processCommand"})
     private String ProcessCommand; // 操作指令
 
-
+    @JsonProperty("TransferData")
     private String TransferData;   // 传输数据(JSON字符串)
-    private WebSocketSession session;   // WebSocket会话ID
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private WebSocketSession session;   // WebSocket会话
 
-    // 返回Json字符串
     @Override
     public String toString() {
         try {
-            return toJSONObject().toString();
-        } catch (JSONException e) {
-            // 自己拼接json字符串
-            return "{" +
-                    "\"Function\":\"" + this.Function + "\"," +
-                    "\"DeviceType\":\"" + this.DeviceType + "\"," +
-                    "\"ProcessCommand\":\"" + this.ProcessCommand + "\"," +
-                    "\"TransferData\":\"" + this.TransferData + "\"" +
-                    "}";
+            return MAPPER.writeValueAsString(this);
+        } catch (JsonProcessingException e) {
+            log.error("DeviceCommand serialize error: {}", e.getMessage());
+            return "{}";
         }
     }
-
-    public JSONObject toJSONObject() throws JSONException {
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.put("Function", this.Function);
-        jsonObject.put("DeviceType", this.DeviceType);
-        jsonObject.put("ProcessCommand", this.ProcessCommand);
-        jsonObject.put("TransferData", this.TransferData);
-        return jsonObject;
-    }
-
 }

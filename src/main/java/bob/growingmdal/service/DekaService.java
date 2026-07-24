@@ -8,6 +8,8 @@ import bob.growingmdal.core.dispatcher.AnnotationDrivenHandler;
 import bob.growingmdal.entity.OperationResultEvent;
 import bob.growingmdal.entity.baseinfo.DomesticIDCard;
 import bob.growingmdal.entity.baseinfo.ForeignIDCard;
+import bob.growingmdal.hardware.LifecycleManaged;
+import org.springframework.boot.actuate.health.Health;
 import bob.growingmdal.util.Base64Util;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
 @Service
-public class DekaService extends AnnotationDrivenHandler {
+public class DekaService extends AnnotationDrivenHandler implements LifecycleManaged {
 
     private final ApplicationEventPublisher eventPublisher;
     private final AtomicBoolean isCheckingCard = new AtomicBoolean(false);
@@ -67,8 +69,8 @@ public class DekaService extends AnnotationDrivenHandler {
     }
 
     @Override
-    public boolean supports(DeviceCommand command) {
-        return "IDCard".equals(command.getDeviceType());
+    public String getDeviceType() {
+        return "IDCard";
     }
 
     private int initDevice(DekaDeviceContext ctx) {
@@ -361,5 +363,31 @@ public class DekaService extends AnnotationDrivenHandler {
             return "ID card check cancelled successfully";
         }
         return "No ID card check in progress to cancel";
+    }
+
+    @Override
+    public void initialize() {
+        log.info("Deka service initialized");
+    }
+
+    @Override
+    public Health health() {
+        DekaDeviceContext ctx = new DekaDeviceContext();
+        try {
+            int handle = initDevice(ctx);
+            if (handle < 0) {
+                return Health.down().withDetail("device", "Deka T10-MX4").withDetail("reason", "init failed").build();
+            }
+            return Health.up().withDetail("device", "Deka T10-MX4").build();
+        } catch (Exception e) {
+            return Health.down(e).withDetail("device", "Deka T10-MX4").build();
+        } finally {
+            exitDevice(ctx);
+        }
+    }
+
+    @Override
+    public void shutdown() {
+        log.info("Deka service shutdown");
     }
 }
