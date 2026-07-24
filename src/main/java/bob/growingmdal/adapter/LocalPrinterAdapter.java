@@ -1,5 +1,6 @@
 package bob.growingmdal.adapter;
 
+import bob.growingmdal.security.PathTraversalValidator;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -53,12 +54,15 @@ public class LocalPrinterAdapter {
 
     /**
      * 打印PDF
-     * @param PdfPath PDF文件路径
+     *
+     * @param baseDir     允许的基目录
+     * @param pdfPath     PDF文件路径
      * @param printerName 打印机名称
      * @return true:成功 false:失败
      */
-    public boolean printPDF(String PdfPath, String printerName){
-        try (PDDocument document = Loader.loadPDF(new File(PdfPath))) {
+    public boolean printPDF(String baseDir, String pdfPath, String printerName) {
+        PathTraversalValidator.validate(baseDir, pdfPath);
+        try (PDDocument document = Loader.loadPDF(new File(pdfPath))) {
             PrinterJob job = PrinterJob.getPrinterJob();
             if (printerName != null && !printerName.isEmpty()) {
                 PrintService[] printServices = PrintServiceLookup.lookupPrintServices(null, null);
@@ -100,7 +104,7 @@ public class LocalPrinterAdapter {
             }
 
             // 调用现有的打印方法
-            return printPDF(tempFile.getAbsolutePath(), printerName);
+            return printPDF(tempFile.getParent(), tempFile.getAbsolutePath(), printerName);
         } catch (Exception e) {
             log.error("Base64字符串打印失败", e);
             return false;

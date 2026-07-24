@@ -1,10 +1,15 @@
 package bob.growingmdal.config;
 
 import bob.growingmdal.handler.HardwareWebSocketHandler;
+import bob.growingmdal.security.HardwareHandshakeInterceptor;
 import bob.growingmdal.service.CommandDispatcherService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
@@ -14,27 +19,43 @@ import org.springframework.web.socket.server.standard.ServletServerContainerFact
 @EnableWebSocket
 public class WebSocketConfig implements WebSocketConfigurer {
 
+    @Value("${hardware.api-key}")
+    private String apiKey;
+
+    @Value("${spring.websocket.allowed-origins}")
+    private String allowedOrigins;
+
     private final CommandDispatcherService dispatcherService;
     private final WebSocketSessionManager sessionManager;
+    private final TaskExecutor taskExecutor;
 
     @Autowired
     public WebSocketConfig(CommandDispatcherService dispatcherService,
-                           WebSocketSessionManager sessionManager) {
+                           WebSocketSessionManager sessionManager,
+                           @Qualifier("messageTaskExecutor") TaskExecutor taskExecutor) {
         this.dispatcherService = dispatcherService;
         this.sessionManager = sessionManager;
+        this.taskExecutor = taskExecutor;
     }
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(hardwareWebSocketHandler(), "/hardware-ws")
-                .setAllowedOrigins("*");
+                .setAllowedOrigins(allowedOrigins.split(","))
+                .addInterceptors(hardwareHandshakeInterceptor());
+    }
+
+    @Bean
+    public HardwareHandshakeInterceptor hardwareHandshakeInterceptor() {
+        return new HardwareHandshakeInterceptor(apiKey, allowedOrigins);
     }
 
     @Bean
     public HardwareWebSocketHandler hardwareWebSocketHandler() {
-        return new HardwareWebSocketHandler(dispatcherService, sessionManager);
+        return new HardwareWebSocketHandler(dispatcherService, sessionManager, taskExecutor);
     }
 
+    @Lazy
     @Bean
     public ServletServerContainerFactoryBean createWebSocketContainer() {
         ServletServerContainerFactoryBean container = new ServletServerContainerFactoryBean();

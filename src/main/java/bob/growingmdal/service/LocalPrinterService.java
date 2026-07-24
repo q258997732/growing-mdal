@@ -5,6 +5,7 @@ import bob.growingmdal.annotation.DeviceOperation;
 import bob.growingmdal.core.command.DeviceCommand;
 import bob.growingmdal.core.dispatcher.AnnotationDrivenHandler;
 import bob.growingmdal.entity.OperationResultEvent;
+import bob.growingmdal.security.PathTraversalValidator;
 
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -25,12 +26,16 @@ public class LocalPrinterService extends AnnotationDrivenHandler {
     @Value("${printer.local.name}")
     private String printerName;
 
+    @Value("${printer.local.allowed-dir:${user.dir}/print-files}")
+    private String allowedDir;
+
     private final LocalPrinterAdapter adapter = LocalPrinterAdapter.getInstance();
 
     @DeviceOperation(DeviceType = "Printer", ProcessCommand = "PrintLocalPDF")
     public boolean printPDF(DeviceCommand command) {
         String path = command.getTransferData();
-        return adapter.printPDF(path, printerName);
+        PathTraversalValidator.validate(allowedDir, path);
+        return adapter.printPDF(allowedDir, path, printerName);
     }
 
     @DeviceOperation(DeviceType = "Printer", ProcessCommand = "PrintPDFBase64")

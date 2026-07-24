@@ -30,38 +30,28 @@ repositories {
 }
 
 dependencies {
-    implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
-    implementation("org.springframework.boot:spring-boot-configuration-processor")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-websocket")
-    implementation("org.springframework.boot:spring-boot-starter-web-services")
-    implementation("org.projectlombok:lombok:1.18.30")
-    implementation("org.springframework.boot:spring-boot-starter-data-rest")
-    testImplementation("io.projectreactor:reactor-test")
-    testImplementation("org.springframework.restdocs:spring-restdocs-mockmvc")
+    implementation("org.springframework.boot:spring-boot-configuration-processor")
+
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
+
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     "developmentOnly"("org.springframework.boot:spring-boot-devtools")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
     // JNR dependencies
     implementation("com.github.jnr:jnr-ffi:2.2.13")
     // JNA 4.5.1
     implementation("net.java.dev.jna:jna:4.5.1")
     implementation("net.java.dev.jna:jna-platform:4.5.1")
-    // JAI
-    implementation("com.sun.media:jai-codec:1.1.3")
     // Printer
     implementation("org.apache.pdfbox:pdfbox:3.0.1")
-    // JavaCV + FFmpeg
-    implementation("org.bytedeco:javacv-platform:1.5.9")
     // SNMP4J
     implementation("org.snmp4j:snmp4j:3.7.2")
-    // Lombok
-    implementation("org.projectlombok:lombok:1.18.30")
-
 }
 
 tasks.withType<Test> {
