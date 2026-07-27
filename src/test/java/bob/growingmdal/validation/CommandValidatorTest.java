@@ -51,7 +51,7 @@ class CommandValidatorTest {
         DeviceCommand command = new DeviceCommand();
         command.setDeviceType("Printer");
         command.setProcessCommand("PrintLocalPDF");
-        command.setTransferData("a".repeat(10_001));
+        command.setTransferData("a".repeat(100_001));
 
         assertThatThrownBy(() -> CommandValidator.validate(command))
                 .isInstanceOf(IllegalArgumentException.class)

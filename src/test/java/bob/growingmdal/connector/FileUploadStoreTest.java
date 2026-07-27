@@ -19,20 +19,23 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class FileUploadStoreTest {
 
+    @TempDir
+    Path tempDir;
+
     @Mock
     private AdapterProperties adapterProperties;
 
     private FileUploadStore store;
 
     @BeforeEach
-    void setUp(@TempDir Path tempDir) throws IOException {
+    void setUp() throws IOException {
         when(adapterProperties.getFileUploadPath()).thenReturn(tempDir.toString());
         store = new FileUploadStore(adapterProperties);
         store.init();
     }
 
     @Test
-    void shouldSaveSmallFile(@TempDir Path tempDir) throws IOException {
+    void shouldSaveSmallFile() throws IOException {
         String content = "hello world";
         String base64 = Base64.getEncoder().encodeToString(content.getBytes());
 
@@ -44,7 +47,7 @@ class FileUploadStoreTest {
     }
 
     @Test
-    void shouldSaveChunksAndMerge(@TempDir Path tempDir) throws IOException {
+    void shouldSaveChunksAndMerge() throws IOException {
         String part1 = "hello ";
         String part2 = "world";
         String fullContent = part1 + part2;
@@ -74,7 +77,7 @@ class FileUploadStoreTest {
     }
 
     @Test
-    void shouldReportWritable(@TempDir Path tempDir) {
+    void shouldReportWritable() {
         assertThat(store.isWritable()).isTrue();
     }
 

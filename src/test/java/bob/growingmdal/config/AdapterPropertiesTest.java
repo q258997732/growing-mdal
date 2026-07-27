@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
 import jakarta.annotation.Resource;
@@ -11,6 +12,7 @@ import jakarta.annotation.Resource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(classes = {AdapterProperties.class, AdapterPropertiesTest.TestConfig.class})
+@ActiveProfiles("test")
 @TestPropertySource(properties = {
         "adapter.printer-local-name=Test Printer",
         "adapter.printer-lexmark-ip=10.0.0.1",
