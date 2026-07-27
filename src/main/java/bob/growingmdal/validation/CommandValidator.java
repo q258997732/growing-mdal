@@ -4,7 +4,7 @@ import bob.growingmdal.core.command.DeviceCommand;
 
 public final class CommandValidator {
 
-    private static final int MAX_TRANSFER_DATA_LENGTH = 10_000;
+    private static final int MAX_TRANSFER_DATA_LENGTH = 100_000;
 
     private CommandValidator() {
     }

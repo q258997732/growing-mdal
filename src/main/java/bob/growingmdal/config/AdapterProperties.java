@@ -72,4 +72,35 @@ public class AdapterProperties {
 
     @Positive
     private long nantianVideoCleanInterval = 600000;
+
+    // Toptron 中控配置
+    @NotBlank
+    private String toptronHost = "192.168.107.200";
+
+    @Positive
+    private int toptronPort = 5000;
+
+    @NotBlank
+    private String toptronToken = "";
+
+    @Positive
+    private int toptronConnectTimeout = 3000;
+    @NotBlank
+    private String rpaHost = "192.168.107.100";
+
+    @Positive
+    private int rpaPort = 80;
+
+    @NotBlank
+    private String rpaUser = "";
+
+    @NotBlank
+    private String rpaPass = "";
+
+    @Positive
+    private int rpaCallFunTimeout = 5000;
+
+    // 文件上传配置
+    @NotBlank
+    private String fileUploadPath = System.getProperty("user.dir") + "/uploads";
 }

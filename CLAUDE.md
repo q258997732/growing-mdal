@@ -4,7 +4,7 @@
 
 ## 项目概述
 
-`growing-mdal` 是一个 Spring Boot 3 服务，通过单一的 WebSocket 端点控制连接在 AI 一体机上的外部硬件设备。它在统一的命令协议下集成了打印机、身份证读卡器和双目摄像头，使 AI 中台无需关注厂商特定细节即可操作设备。
+`growing-mdal` 是一个 Spring Boot 3 服务，通过单一的 WebSocket 端点控制连接在 AI 一体机上的外部硬件设备，并对接外部系统。它在统一的命令协议下集成了打印机、身份证读卡器、双目摄像头、Toptron 中控、K-RPA 客户端和文件上传服务，使 AI 中台无需关注厂商特定细节即可操作设备或与外部系统交互。
 
 - 语言：Java 17
 - 构建工具：Gradle Kotlin DSL（`build.gradle.kts`）
@@ -81,6 +81,9 @@
 | `LocalPrinterService` | `Printer` | 使用本地 Java 打印服务，根据文件路径或 Base64 负载打印 PDF。 |
 | `LexmarkPrinterService` | `LexmarkPrinter` | 通过 SNMP 查询 Lexmark 打印机状态。 |
 | `NantianCameraService` | `Camera` | 通过 Jakarta WebSocket 客户端连接控制南天双目（可见光 + 红外）摄像头。 |
+| `ToptronControlService` | `Toptron` | 通过 TCP Socket 发送十六进制报文控制 Toptron 中控。 |
+| `RpaClientService` | `Rpa` | 通过 Apache HttpClient 5 调用 K-RPA 服务。 |
+| `FileUploadService` | `FileUpload` | 接收 Base64 文件数据并保存到本地文件系统，支持分块上传。 |
 
 `supports` 方法是扩展点：新增设备服务必须对自身的 `deviceType` 返回 `true`，才会被分发器纳入。每个 `deviceType` 必须只被一个服务声明 —— `CommandDispatcherService` 使用 `findFirst()`，若出现重叠声明将静默依赖 Spring 的 Bean 顺序。
 
@@ -103,18 +106,34 @@
 
 `NativeLibraryLoader` 在运行时将所需 DLL 解压到临时目录，并通过 JNR-FFI 加载。接口（如 `DekaReaderAdapter`）定义了 JNR 映射到 DLL 的 C 函数签名。
 
+### 外部系统连接器
+
+非 DLL/SNMP 类的外部系统对接逻辑放在 `src/main/java/bob/growingmdal/connector/` 下：
+
+- `ToptronTcpConnector`：通过 TCP Socket 与 Toptron 中控通信，发送电源控制或自定义十六进制报文。
+- `RpaHttpConnector`：基于 Apache HttpClient 5 连接池与 K-RPA 服务通信，发送 `CallFunc.aom` 请求。
+- `FileUploadStore`：管理本地文件上传目录，维护内存元数据索引，负责小文件写入、分块合并与 MD5 检查。
+
+这些 Connector 由对应 Service 注入，生命周期随 Spring Bean 管理；`RpaHttpConnector` 在销毁时通过 `@PreDestroy` 关闭连接池。
+
 ### 配置
 
 - `application.properties` —— Spring/WebSocket 设置，包含 `spring.websocket.allowed-origins=*`。
-- `adapter.properties` —— 设备专属设置（打印机名称、德卡超时、南天摄像头地址、启用开关等）。
+- `adapter.properties` —— 设备专属设置（打印机名称、德卡超时、南天摄像头地址、启用开关，以及 Toptron、K-RPA、文件上传参数）。
 - `AdapterConfig` 先加载 `classpath:adapter.properties`，再加载外部 `./adapter.properties`（如果存在），因此部署时无需重新打包即可覆盖默认配置。
+
+新增外部系统配置：
+
+- `adapter.toptron.host` / `port` / `token` / `connect-timeout`：Toptron 中控连接参数。
+- `adapter.rpa.host` / `port` / `user` / `pass` / `call-fun-timeout`：K-RPA 服务连接参数。
+- `adapter.file-upload.path` / `max-transfer-data-length`：文件上传保存目录与单条消息大小限制。
 
 重要运行时开关：
 
 - `nantian.camera.enable=false` 不会阻止 Bean 加载或声明 `deviceType=Camera`；摄像头操作会返回一个 `500` 的 `NantianCameraResponse`，而不会真正操作硬件。
 - `nantian.camera.auto.reconnect=false` 禁用摄像头服务的自动重连。
 
-## 新增设备操作
+## 新增设备/外部系统操作
 
 要新增一条命令支持：
 
@@ -122,6 +141,7 @@
 2. 实现 `supports(DeviceCommand)`，使其匹配对应设备的 `deviceType`。
 3. 添加带有 `@DeviceOperation(DeviceType = "...", ProcessCommand = "...")` 注解的方法。
 4. 方法参数可以为空或仅接受一个 `DeviceCommand` 参数。返回结果对象；`AnnotationDrivenHandler` 会调用 `result.toString()` 并放入 `TransferData`。若需要结构化输出，请自行在返回前完成 JSON 序列化。
+5. 如需与外部系统通信，在 `src/main/java/bob/growingmdal/connector/` 下新建 Connector，由 Service 注入使用。参考：`ToptronTcpConnector`、`RpaHttpConnector`、`FileUploadStore`。
 
 ## 注意事项
 
@@ -130,9 +150,12 @@
 - **编码：** `build.gradle.kts` 强制编译、测试和 `JavaExec` 任务使用 UTF-8。
 - **Lombok：** 项目中大量使用 Lombok 注解（`@Slf4j`、`@Getter` 等），构建时必须启用 Lombok 支持。
 - **WebSocket 缓冲区：** `WebSocketConfig` 设置文本/二进制消息缓冲区为 2 MB，空闲超时为 30 分钟。
+- **外部系统敏感配置：** Toptron Token、K-RPA 用户名/密码通过 `AdapterProperties` 从环境变量注入，禁止硬编码。
+- **文件上传限制：** `CommandValidator.MAX_TRANSFER_DATA_LENGTH` 已调整为 100,000，支持约 75KB 原始数据；超过此大小请使用 `UploadChunk` 分块上传。文件元数据与分块索引保存在内存中，服务重启后丢失。
 
 ## 测试说明
 
 - 测试使用 JUnit 5（`useJUnitPlatform()`）。
 - 仓库中除了生成的 `GrowingMdalApplicationTests`，还有几个探索性/占位测试文件（`PinadCxxJNRTest`、`PinpadCJNR`、`TestTmp`）。这些文件本质上是临时草稿或 main 方法风格代码，不是真正的带断言 JUnit 测试。
-- 涉及本地 DLL 或外部硬件的测试，只有在外部设备已连接并可访问时才能通过。
+- 新增外部系统服务的单元测试：`ToptronControlServiceTest`、`RpaClientServiceTest`、`FileUploadServiceTest`、`FileUploadStoreTest`、`RpaUtilTest`。
+- 涉及本地 DLL、外部硬件或真实外部服务的测试，只有在外部设备/服务已连接并可访问时才能通过。

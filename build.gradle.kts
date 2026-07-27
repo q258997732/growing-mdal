@@ -54,6 +54,8 @@ dependencies {
     implementation("org.apache.pdfbox:pdfbox:3.0.1")
     // SNMP4J
     implementation("org.snmp4j:snmp4j:3.7.2")
+    // Apache HttpClient 5 for K-RPA
+    implementation("org.apache.httpcomponents.client5:httpclient5:5.3.1")
 }
 
 tasks.withType<Test> {

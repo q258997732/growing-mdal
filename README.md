@@ -1,6 +1,6 @@
 # growing-mdal
 
-`growing-mdal` 是一个用于 AI 一体机的硬件控制网关服务。它通过统一的 WebSocket 协议，将打印机、身份证读卡器、双目摄像头等外部设备能力封装为标准接口，使 AI 中台无需关注厂商细节即可操作硬件。
+`growing-mdal` 是一个用于 AI 一体机的硬件控制网关服务。它通过统一的 WebSocket 协议，将打印机、身份证读卡器、双目摄像头等外部设备能力，以及 Toptron 中控、K-RPA 客户端、文件上传等外部系统对接能力封装为标准接口，使 AI 中台无需关注厂商细节即可操作硬件或与外部系统交互。
 
 ---
 
@@ -12,8 +12,11 @@
 | 本地打印机 | `Printer` | Java 打印服务 | 根据文件路径或 Base64 打印 PDF |
 | Lexmark 打印机 | `LexmarkPrinter` | SNMP v2c | 查询打印机状态 |
 | 南天双目摄像头 | `Camera` | Jakarta WebSocket Client | 可见光 + 红外，支持拍照、人脸检测、视频流 |
+| Toptron 中控 | `Toptron` | TCP Socket | 电源控制与原始十六进制报文发送 |
+| K-RPA 客户端 | `Rpa` | HTTP/JSON | 组件调用、任务队列、Agent/流程/状态查询 |
+| 文件上传服务 | `FileUpload` | 本地文件系统 + Base64 | 小文件上传、分块上传、MD5 检查 |
 
-> 未来接入新硬件时，只需新增一个 `HardwareCommandHandler` 实现并声明 `@DeviceOperation`，无需修改分发器。详见[接入新硬件](#接入新硬件)。
+> 未来接入新硬件或外部系统时，只需新增一个 `HardwareCommandHandler` 实现并声明 `@DeviceOperation`，无需修改分发器。详见[接入新硬件/外部系统](#接入新硬件外部系统)。
 
 ---
 
@@ -24,6 +27,7 @@
 - Gradle Kotlin DSL
 - JNR-FFI（原生库调用）
 - Jakarta WebSocket Client
+- Apache HttpClient 5（K-RPA 等 HTTP 对接）
 - Jackson
 - JUnit 5 / Mockito / AssertJ
 
@@ -36,6 +40,9 @@
 3. 对于本地打印，需要操作系统已配置可用打印机。
 4. 对于 Lexmark 打印机，需要网络可达的打印机 IP 与 SNMP community。
 5. 对于南天摄像头，需要网络可达的摄像头 WebSocket 地址。
+6. 对于 Toptron 中控，需要网络可达的中控主机 IP 与端口。
+7. 对于 K-RPA，需要网络可达的 K-RPA 服务地址以及有效的用户名/密码。
+8. 对于文件上传服务，需要应用对配置的 `file-upload.path` 目录具有读写权限。
 
 ---
 
@@ -116,6 +123,16 @@ java -jar build/libs/growing-mdal-1.0.3.jar
 | `NANTIAN_CAMERA_RESPONSE_TIMEOUT` | 摄像头响应超时（秒） | `3` |
 | `NANTIAN_CAMERA_VIDEO_TIME` | 采集视频时间（毫秒） | `3000` |
 | `NANTIAN_CAMERA_DETECT_TIME` | 人脸检测超时（秒） | `10` |
+| `TOPTRON_HOST` | Toptron 中控 IP | `192.168.107.200` |
+| `TOPTRON_PORT` | Toptron 中控端口 | `5000` |
+| `TOPTRON_TOKEN` | Toptron 鉴权 Token | （空字符串） |
+| `TOPTRON_CONNECT_TIMEOUT` | Toptron TCP 连接超时（毫秒） | `5000` |
+| `RPA_HOST` | K-RPA 服务 IP | `192.168.107.100` |
+| `RPA_PORT` | K-RPA 服务端口 | `80` |
+| `RPA_USER` | K-RPA 用户名 | （空字符串） |
+| `RPA_PASS` | K-RPA 密码 | （空字符串） |
+| `RPA_CALL_FUN_TIMEOUT` | K-RPA 调用超时（毫秒） | `5000` |
+| `FILE_UPLOAD_PATH` | 文件上传保存目录 | `${user.dir}/uploads` |
 
 ### application.properties 示例
 
@@ -155,6 +172,23 @@ adapter.nantian-camera-video-time=${NANTIAN_CAMERA_VIDEO_TIME:3000}
 adapter.nantian-camera-detect-time=${NANTIAN_CAMERA_DETECT_TIME:10}
 adapter.nantian-msg-clean-interval=${NANTIAN_MSG_CLEAN_INTERVAL:600000}
 adapter.nantian-video-clean-interval=${NANTIAN_VIDEO_CLEAN_INTERVAL:600000}
+
+# Toptron 中控
+adapter.toptron-host=${TOPTRON_HOST:192.168.107.200}
+adapter.toptron-port=${TOPTRON_PORT:5000}
+adapter.toptron-token=${TOPTRON_TOKEN:}
+adapter.toptron-connect-timeout=${TOPTRON_CONNECT_TIMEOUT:5000}
+
+# K-RPA 客户端
+adapter.rpa-host=${RPA_HOST:192.168.107.100}
+adapter.rpa-port=${RPA_PORT:80}
+adapter.rpa-user=${RPA_USER:}
+adapter.rpa-pass=${RPA_PASS:}
+adapter.rpa-call-fun-timeout=${RPA_CALL_FUN_TIMEOUT:5000}
+
+# 文件上传服务
+adapter.file-upload-path=${FILE_UPLOAD_PATH:${user.dir}/uploads}
+adapter.file-upload-max-transfer-data-length=${FILE_UPLOAD_MAX_TRANSFER_DATA_LENGTH:100000}
 ```
 
 ---
@@ -182,8 +216,8 @@ Origin: <ALLOWED_ORIGINS 中的某个来源>
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `Function` | string | 固定为 `InPut` 或 `OutPut` |
-| `DeviceType` | string | 设备类型，如 `IDCard`、`Printer`、`Camera`、`LexmarkPrinter` |
-| `ProcessCommand` | string | 操作命令，如 `GetIDCardInfo`、`PrintLocalPDF` |
+| `DeviceType` | string | 设备类型，如 `IDCard`、`Printer`、`Camera`、`LexmarkPrinter`、`Toptron`、`Rpa`、`FileUpload` |
+| `ProcessCommand` | string | 操作命令，如 `GetIDCardInfo`、`PrintLocalPDF`、`PowerControl`、`CallComponent`、`Upload` |
 | `TransferData` | string | 命令负载，通常为 JSON 字符串或 Base64/PDF 路径 |
 
 ### 响应消息格式
@@ -226,16 +260,40 @@ Origin: <ALLOWED_ORIGINS 中的某个来源>
 
 > `TransferData` 中的路径必须位于配置的允许目录内，禁止路径遍历。
 
-#### 摄像头拍照
+#### Toptron 中控电源控制
 
 ```json
 {
   "Function": "InPut",
-  "DeviceType": "Camera",
-  "ProcessCommand": "TakePhoto",
-  "TransferData": ""
+  "DeviceType": "Toptron",
+  "ProcessCommand": "PowerControl",
+  "TransferData": "{\"gatePosition\":\"1\",\"turnon\":true}"
 }
 ```
+
+#### K-RPA 调用组件
+
+```json
+{
+  "Function": "InPut",
+  "DeviceType": "Rpa",
+  "ProcessCommand": "CallComponent",
+  "TransferData": "{\"script\":\"组件名\",\"params\":\"{}\",\"agentIp\":\"192.168.1.10\"}"
+}
+```
+
+#### 文件上传
+
+```json
+{
+  "Function": "InPut",
+  "DeviceType": "FileUpload",
+  "ProcessCommand": "Upload",
+  "TransferData": "{\"name\":\"report.pdf\",\"contentBase64\":\"JVBERi0xLjQK...\"}"
+}
+```
+
+> 分块上传使用 `UploadChunk`；单块原始数据建议控制在 75KB 以内，以避免超过 `TransferData` 长度限制。
 
 ---
 
@@ -246,7 +304,7 @@ Origin: <ALLOWED_ORIGINS 中的某个来源>
 3. **路径遍历**：打印命令的 `TransferData` 会经过校验，禁止跳出允许目录。
 4. **PII 保护**：身份证姓名、身份证号、地址、照片、指纹等信息不会写入应用日志。
 5. **错误信息**：客户端收到的错误消息为通用描述，详细堆栈仅记录服务端日志。
-6. **配置安全**：敏感值（API Key、SNMP community、设备 IP）应通过环境变量注入，不要提交到版本控制。
+6. **配置安全**：敏感值（API Key、SNMP community、设备 IP、Toptron Token、K-RPA 用户名/密码）应通过环境变量注入，不要提交到版本控制。
 7. **Actuator**：健康检查端点默认暴露在独立端口，且仅暴露 `health`、`info`、`metrics`。
 
 ---
@@ -268,6 +326,9 @@ curl http://localhost:9090/actuator/health
     "deka": { "status": "UP" },
     "printer": { "status": "UP" },
     "camera": { "status": "DOWN", "details": { "reason": "not connected" } },
+    "toptron": { "status": "UP" },
+    "rpa": { "status": "UP" },
+    "fileUpload": { "status": "UP" },
     "ping": { "status": "UP" }
   }
 }
@@ -275,18 +336,22 @@ curl http://localhost:9090/actuator/health
 
 ---
 
-## 接入新硬件
+## 接入新硬件/外部系统
 
-未来接入新硬件时，推荐按以下步骤扩展：
+未来接入新硬件或外部系统时，推荐按以下步骤扩展：
 
 1. 在 `src/main/java/bob/growingmdal/service/` 下新建 `XxxService`，继承 `AnnotationDrivenHandler`。
-2. 实现 `getDeviceType()` 方法，返回唯一的设备类型字符串（如 `"BarcodeScanner"`）。
+2. 实现 `getDeviceType()` 方法，返回唯一的设备类型字符串（如 `"BarcodeScanner"`、`"Toptron"`）。
 3. 如果硬件需要连接/断开/健康检查，让 `XxxService` 同时实现 `LifecycleManaged` 接口。
-4. 如果硬件使用新的协议，在 `src/main/java/bob/growingmdal/hardware/` 下新建 `XxxConnector implements HardwareConnector<T>`，将协议细节封装在内。
+4. 如果硬件使用新的协议，在 `src/main/java/bob/growingmdal/connector/` 下新建 `XxxConnector`，将协议细节封装在内；已有参考：
+   - `ToptronTcpConnector`（TCP Socket）
+   - `RpaHttpConnector`（Apache HttpClient 5）
+   - `FileUploadStore`（本地文件系统）
 5. 为每个支持的操作添加 `@DeviceOperation(DeviceType = "...", ProcessCommand = "...")` 注解的方法。
 6. 方法参数仅支持 `()` 或 `(DeviceCommand)`；返回值会被 Jackson 自动序列化为 `data` 字段。
 7. 新增单元测试 `XxxServiceTest`，验证命令映射、正常路径与异常路径。
-8. 无需修改 `CommandDispatcherService` —— 启动时 `CommandRegistry` 会自动发现并注册新的 `@DeviceOperation`。
+8. 如需纳入健康检查，新增 `XxxHealthIndicator` 并注册为 Spring Bean。
+9. 无需修改 `CommandDispatcherService` —— 启动时 `CommandRegistry` 会自动发现并注册新的 `@DeviceOperation`。
 
 ---
 
@@ -299,7 +364,9 @@ growing-mdal
 │   ├── annotation/       # @DeviceOperation
 │   ├── camera/           # 南天摄像头组件（生命周期、消息路由、命令执行）
 │   ├── config/           # Spring 配置
+│   ├── connector/        # 外部系统连接器（TCP/HTTP/文件系统）
 │   ├── core/             # 命令模型与分发
+│   ├── dto/              # 请求/响应 DTO
 │   ├── entity/           # 实体与响应对象
 │   ├── handler/          # WebSocket 处理器
 │   ├── hardware/         # 硬件连接与生命周期抽象
@@ -349,6 +416,24 @@ growing-mdal
 
 - 当 `NANTIAN_CAMERA_ENABLE=false` 时，摄像头健康检查预期为 `DOWN`。
 - 当启用后仍 DOWN，请检查网络连接与摄像头服务状态。
+
+### Q6: Toptron 中控命令返回 false
+
+- 检查 `TOPTRON_HOST` 和 `TOPTRON_PORT` 是否可达。
+- 检查 `TOPTRON_TOKEN` 是否与中控配置一致。
+- 查看服务端日志中的 TCP 连接错误。
+
+### Q7: K-RPA 调用返回 false
+
+- 检查 `RPA_HOST` 和 `RPA_PORT` 是否可达。
+- 检查 `RPA_USER` 和 `RPA_PASS` 是否正确。
+- 检查被调用的组件名/流程名/Agent IP 是否在 K-RPA 服务端存在。
+
+### Q8: 文件上传失败或返回 error
+
+- 检查 `FILE_UPLOAD_PATH` 目录是否存在且应用进程有读写权限。
+- 确认单条 `TransferData` 未超过 `FILE_UPLOAD_MAX_TRANSFER_DATA_LENGTH`（默认 100,000，约 75KB 原始数据）。
+- 大文件请使用 `UploadChunk` 分块上传。
 
 ---
 
