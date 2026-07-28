@@ -1,23 +1,27 @@
 # CLAUDE.md
 
-本文件为 Claude Code（claude.ai/code）在操作本仓库代码时提供指引。
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 环境要求
+## Project Overview
+
+`growing-mdal` 是一个 Spring Boot 3 硬件控制网关服务，用于 AI 一体机。它通过统一的命令协议，将打印机、身份证读卡器、双目摄像头、Toptron 中控、K-RPA 客户端和文件上传服务封装为对外接口，使 AI 中台无需关注厂商特定细节即可操作硬件或与外部系统交互。
 
 - 语言：Java 17
-- 本地 JDK 路径：`C:\Users\Administrator\.jdks\ms-17.0.19`
 - 构建工具：Gradle Kotlin DSL（`build.gradle.kts`）
 - 框架：Spring Boot 3.5.0
 - 组织/版本：`bob:1.0.3`
+- 本地 JDK 路径：`C:\Users\Administrator\.jdks\ms-17.0.19`
 
-构建前请确保 `JAVA_HOME` 指向上述 JDK，例如：
+## Environment Setup
+
+构建前必须将 `JAVA_HOME` 指向 Java 17 JDK（仓库已约定使用上述本地路径）：
 
 ```bash
 export JAVA_HOME="/c/Users/Administrator/.jdks/ms-17.0.19"
 export PATH="$JAVA_HOME/bin:$PATH"
 ```
 
-## 常用命令
+## Common Commands
 
 构建项目：
 
@@ -25,7 +29,13 @@ export PATH="$JAVA_HOME/bin:$PATH"
 ./gradlew build
 ```
 
-运行应用（使用 Spring Boot 插件）：
+清理并重新构建：
+
+```bash
+./gradlew clean build
+```
+
+运行应用：
 
 ```bash
 ./gradlew bootRun
@@ -49,119 +59,109 @@ export PATH="$JAVA_HOME/bin:$PATH"
 ./gradlew test --tests bob.growingmdal.GrowingMdalApplicationTests.contextLoads
 ```
 
-清理并重新构建：
+生成覆盖率报告：
 
 ```bash
-./gradlew clean build
+./gradlew jacocoTestReport
+# 报告位于 build/reports/jacoco/test/html/index.html
 ```
 
-构建时使用阿里云和清华大学 Maven 镜像作为主要仓库；`mavenCentral()` 和 JBoss 作为备用。
+构建使用阿里云和清华大学 Maven 镜像作为主要仓库，`mavenCentral()` 和 JBoss 作为备用。
 
-## 架构
+## High-Level Architecture
 
-### 命令分发流程
+### Dual Transport: WebSocket + REST
 
-客户端连接 `/hardware-ws` 并发送 JSON 命令，服务端将命令路由到对应的设备服务。
+所有硬件命令均支持 WebSocket；非流式命令额外提供 RESTful HTTP 入口。
 
 ```
-客户端 WebSocket -> HardwareWebSocketHandler -> CommandDispatcherService
-                                                       |
-                                                       v
-                                            AnnotationDrivenHandler
-                                                       |
-                                                       v
-                                                 设备服务
+客户端 WebSocket      客户端 HTTP
+     │                    │
+     ▼                    ▼
+HardwareWebSocketHandler  HardwareCommandRestController
+     │                    │
+     └──────────┬─────────┘
+                ▼
+      CommandDispatcherService
+                │
+                ▼
+      CommandRegistry + HandlerMethodInvoker
+                │
+                ▼
+          设备 Service / Connector
 ```
 
-1. `HardwareWebSocketHandler` 校验 JSON，将其解析为 `DeviceCommand`，然后调用 `CommandDispatcherService.dispatch`。
-   - 注意：`processCommand` 等于字符串 `"Camera"` 的命令会在分发前被 `isCameraCommand` 静默丢弃。
-2. `CommandDispatcherService` 选择第一个 `supports(DeviceCommand)` 返回 `true` 的 `HardwareCommandHandler`。
-3. 每个设备服务都继承 `AnnotationDrivenHandler`，该基类通过反射查找带有 `@DeviceOperation(DeviceType = "...", ProcessCommand = "...")` 注解的方法并调用匹配项。
-4. `AnnotationDrivenHandler` 将 `TransferData` 设置为 `result.toString()` 并返回 `command.toString()`。如果需要结构化 JSON 输出，服务必须在返回前自行序列化。
+- **WebSocket 入口：** `/hardware-ws`
+  - 握手需携带 `X-API-Key` 与符合 `ALLOWED_ORIGINS` 的 `Origin`。
+  - 入站消息由 `HardwareWebSocketHandler` 解析为 `DeviceCommand`，通过 `messageTaskExecutor` 线程池异步处理。
+  - 同步结果包装为 `CommandResponse` 返回；持续结果（插卡提示、人脸检测、视频帧）通过 `OperationResultEvent` 推送。
+- **REST 入口：** `/api/v1/hardware/{deviceType}/commands/{processCommand}`
+  - `readOnly=true` 的命令使用 `GET`，其他使用 `POST`。
+  - 由 `HardwareApiKeyFilter` 校验 `X-API-Key`。
+  - 受 `adapter.rest.*` 开关控制；摄像头 REST 默认关闭。
+  - 流式命令直接返回 `202 Accepted`，不执行硬件操作。
 
-### 设备服务
+### Command Dispatch
 
-| 服务 | 设备类型（DeviceType） | 职责 |
+1. `DeviceCommand` 包含 `Function`、`DeviceType`、`ProcessCommand`、`TransferData`。
+2. `CommandRegistry` 启动时扫描所有 `HardwareCommandHandler` Bean，将 `@DeviceOperation(DeviceType, ProcessCommand, streaming, readOnly)` 注册为 `DeviceType:ProcessCommand -> HandlerMapping`。
+3. `CommandDispatcherService.dispatch(command)` 找到匹配映射后，由 `HandlerMethodInvoker` 反射调用。
+4. 方法签名仅支持 `()`、`(DeviceCommand)`、`(int)`、`(int, int, int)`；返回值通过 Jackson 序列化为 JSON字符串，最终放入响应 `data` 字段。
+
+### Streaming Isolation
+
+- 服务通过 `ApplicationEventPublisher` 发布 `OperationResultEvent(session, result)`。
+- `HardwareWebSocketHandler.handleOperationResult` 将事件交给 `WebSocketOutboundService`：
+  - 命令响应/错误同步发送，保证顺序。
+  - 流式事件提交到独立 `outboundTaskExecutor`，避免摄像头工作线程阻塞在网络 I/O。
+  - 所有 outbound 发送均对 `WebSocketSession` 加锁，防止帧交错。
+- `TimeSortedBufferQueue` 对摄像头二进制帧设置了容量上限，超限时丢弃最老帧。
+
+### Device Services
+
+| 服务 | DeviceType | 接入方式 |
 |---|---|---|
-| `DekaService` | `IDCard` | 通过德卡 T10-MX4 读卡器 DLL（`dcrf32.dll`）读取国内/外国人身份证。 |
-| `LocalPrinterService` | `Printer` | 使用本地 Java 打印服务，根据文件路径或 Base64 负载打印 PDF。 |
-| `LexmarkPrinterService` | `LexmarkPrinter` | 通过 SNMP 查询 Lexmark 打印机状态。 |
-| `NantianCameraService` | `Camera` | 通过 Jakarta WebSocket 客户端连接控制南天双目（可见光 + 红外）摄像头。 |
-| `ToptronControlService` | `Toptron` | 通过 TCP Socket 发送十六进制报文控制 Toptron 中控。 |
-| `RpaClientService` | `Rpa` | 通过 Apache HttpClient 5 调用 K-RPA 服务。 |
-| `FileUploadService` | `FileUpload` | 接收 Base64 文件数据并保存到本地文件系统，支持分块上传。 |
+| `DekaService` | `IDCard` | JNR-FFI + 德卡 DLL |
+| `LocalPrinterService` | `Printer` | Java 打印服务 |
+| `LexmarkPrinterService` | `LexmarkPrinter` | SNMP v2c |
+| `CameraCommandExecutor` | `Camera` | Jakarta WebSocket Client |
+| `ToptronControlService` | `Toptron` | TCP Socket |
+| `RpaClientService` | `Rpa` | Apache HttpClient 5 |
+| `FileUploadService` | `FileUpload` | 本地文件系统 + Base64 |
 
-`supports` 方法是扩展点：新增设备服务必须对自身的 `deviceType` 返回 `true`，才会被分发器纳入。每个 `deviceType` 必须只被一个服务声明 —— `CommandDispatcherService` 使用 `findFirst()`，若出现重叠声明将静默依赖 Spring 的 Bean 顺序。
+新增设备：继承 `AnnotationDrivenHandler`（或直接实现 `HardwareCommandHandler`），实现 `getDeviceType()`/`supports()`，添加 `@DeviceOperation` 方法。若需协议封装，在 `connector/` 下新建 Connector。无需修改分发器，`CommandRegistry` 会自动发现。
 
-### 异步结果
+### Configuration
 
-部分操作会持续向客户端回传中间结果（例如身份证插卡提示、人脸检测事件、视频帧）。这些结果通过 Spring 的 `ApplicationEventPublisher` 发出：
+- `application.properties`：Spring/WebSocket/安全/REST 开关。
+- `adapter.properties`：设备专属参数；外部 `./adapter.properties` 会覆盖 classpath 默认值。
+- 敏感配置（API Key、SNMP community、Toptron Token、K-RPA 密码）通过环境变量注入，禁止硬编码。
 
-- 服务代码发布 `OperationResultEvent(session, result)`。
-- `HardwareWebSocketHandler.handleOperationResult` 监听该事件，并将负载转发给原始会话。
+新增 REST 开关示例：
 
-这意味着处理函数可能先返回一个初始响应，后续数据再通过事件通道到达。
+```properties
+adapter.rest.enabled=true
+adapter.rest.idcard=true
+adapter.rest.camera=false
+```
 
-### 本地库
+## Testing Notes
 
-设备 DLL 打包在 `src/main/resources/lib/` 下：
+- 测试使用 JUnit 5 + Mockito + AssertJ。
+- `./gradlew clean build` 会执行测试与 JaCoCo 覆盖率校验（当前最低 70%）。
+- 涉及本地 DLL、真实硬件或外部服务的测试，只有在外部资源可访问时才能通过。
+- 仓库中存在几个探索性/占位测试文件（`PinadCxxJNRTest`、`PinpadCJNR`、`TestTmp`），不是真正的带断言 JUnit 测试。
 
-- `deka_T10-MX4_x64/` 和 `deka_T10-MX4_x86/` —— 德卡读卡器 SDK
-- `jieyu_D10/` —— 另一套摄像头/读卡器 SDK
-- `yk_j80_x64/` 和 `yk_j80_x86/` —— 另一套设备 SDK
+## Security & Operations
 
-`NativeLibraryLoader` 在运行时将所需 DLL 解压到临时目录，并通过 JNR-FFI 加载。接口（如 `DekaReaderAdapter`）定义了 JNR 映射到 DLL 的 C 函数签名。
+- `/hardware-ws` 握手和 `/api/v1/hardware/**` REST 接口均校验 `X-API-Key`。
+- `ALLOWED_ORIGINS` 生产环境禁止配置为 `*`。
+- 健康检查端点默认暴露在独立管理端口（默认 `9090`），仅暴露 `health`、`info`、`metrics`。
+- 身份证 PII 信息不会写入应用日志。
 
-### 外部系统连接器
+## Important Caveats
 
-非 DLL/SNMP 类的外部系统对接逻辑放在 `src/main/java/bob/growingmdal/connector/` 下：
-
-- `ToptronTcpConnector`：通过 TCP Socket 与 Toptron 中控通信，发送电源控制或自定义十六进制报文。
-- `RpaHttpConnector`：基于 Apache HttpClient 5 连接池与 K-RPA 服务通信，发送 `CallFunc.aom` 请求。
-- `FileUploadStore`：管理本地文件上传目录，维护内存元数据索引，负责小文件写入、分块合并与 MD5 检查。
-
-这些 Connector 由对应 Service 注入，生命周期随 Spring Bean 管理；`RpaHttpConnector` 在销毁时通过 `@PreDestroy` 关闭连接池。
-
-### 配置
-
-- `application.properties` —— Spring/WebSocket 设置，包含 `spring.websocket.allowed-origins=*`。
-- `adapter.properties` —— 设备专属设置（打印机名称、德卡超时、南天摄像头地址、启用开关，以及 Toptron、K-RPA、文件上传参数）。
-- `AdapterConfig` 先加载 `classpath:adapter.properties`，再加载外部 `./adapter.properties`（如果存在），因此部署时无需重新打包即可覆盖默认配置。
-
-新增外部系统配置：
-
-- `adapter.toptron.host` / `port` / `token` / `connect-timeout`：Toptron 中控连接参数。
-- `adapter.rpa.host` / `port` / `user` / `pass` / `call-fun-timeout`：K-RPA 服务连接参数。
-- `adapter.file-upload.path` / `max-transfer-data-length`：文件上传保存目录与单条消息大小限制。
-
-重要运行时开关：
-
-- `nantian.camera.enable=false` 不会阻止 Bean 加载或声明 `deviceType=Camera`；摄像头操作会返回一个 `500` 的 `NantianCameraResponse`，而不会真正操作硬件。
-- `nantian.camera.auto.reconnect=false` 禁用摄像头服务的自动重连。
-
-## 新增设备/外部系统操作
-
-要新增一条命令支持：
-
-1. 创建或扩展一个继承 `AnnotationDrivenHandler` 并标注 `@Service` 的服务。
-2. 实现 `supports(DeviceCommand)`，使其匹配对应设备的 `deviceType`。
-3. 添加带有 `@DeviceOperation(DeviceType = "...", ProcessCommand = "...")` 注解的方法。
-4. 方法参数可以为空或仅接受一个 `DeviceCommand` 参数。返回结果对象；`AnnotationDrivenHandler` 会调用 `result.toString()` 并放入 `TransferData`。若需要结构化输出，请自行在返回前完成 JSON 序列化。
-5. 如需与外部系统通信，在 `src/main/java/bob/growingmdal/connector/` 下新建 Connector，由 Service 注入使用。参考：`ToptronTcpConnector`、`RpaHttpConnector`、`FileUploadStore`。
-
-## 注意事项
-
-- **每条消息单独线程：** `HardwareWebSocketHandler.handleTextMessage` 为每条入站消息都创建一个原生 `new Thread(...)`。`ThreadPoolConfig` 存在，但目前未用于消息分发。
-- **硬编码开发路径：** `DekaService` 的 DLL 工作目录通过 `user.dir + "/src/main/resources/lib/deka_T10-MX4_x64"` 构建，只有在开发环境下从项目根目录启动时才有效。
-- **编码：** `build.gradle.kts` 强制编译、测试和 `JavaExec` 任务使用 UTF-8。
-- **Lombok：** 项目中大量使用 Lombok 注解（`@Slf4j`、`@Getter` 等），构建时必须启用 Lombok 支持。
-- **WebSocket 缓冲区：** `WebSocketConfig` 设置文本/二进制消息缓冲区为 2 MB，空闲超时为 30 分钟。
-- **外部系统敏感配置：** Toptron Token、K-RPA 用户名/密码通过 `AdapterProperties` 从环境变量注入，禁止硬编码。
-- **文件上传限制：** `CommandValidator.MAX_TRANSFER_DATA_LENGTH` 已调整为 100,000，支持约 75KB 原始数据；超过此大小请使用 `UploadChunk` 分块上传。文件元数据与分块索引保存在内存中，服务重启后丢失。
-
-## 测试说明
-
-- 测试使用 JUnit 5（`useJUnitPlatform()`）。
-- 仓库中除了生成的 `GrowingMdalApplicationTests`，还有几个探索性/占位测试文件（`PinadCxxJNRTest`、`PinpadCJNR`、`TestTmp`）。这些文件本质上是临时草稿或 main 方法风格代码，不是真正的带断言 JUnit 测试。
-- 新增外部系统服务的单元测试：`ToptronControlServiceTest`、`RpaClientServiceTest`、`FileUploadServiceTest`、`FileUploadStoreTest`、`RpaUtilTest`。
-- 涉及本地 DLL、外部硬件或真实外部服务的测试，只有在外部设备/服务已连接并可访问时才能通过。
+- `DekaService` 的 DLL 工作目录基于 `user.dir + "/src/main/resources/lib/deka_T10-MX4_x64"`，只有在项目根目录启动时才有效。
+- 文件上传元数据与分块索引保存在内存中，服务重启后丢失。
+- REST 命令当前为同步调用：耗时操作（RPA、DLL、打印）会占用 Tomcat 工作线程，客户端需设置合理超时。
+- 流式事件由多线程 outbound 池发送，顺序为尽力保证，极端背压下会丢帧。
