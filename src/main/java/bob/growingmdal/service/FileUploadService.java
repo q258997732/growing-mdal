@@ -89,7 +89,7 @@ public class FileUploadService extends AnnotationDrivenHandler implements Lifecy
         }
     }
 
-    @DeviceOperation(DeviceType = DEVICE_TYPE, ProcessCommand = "CheckMd5")
+    @DeviceOperation(DeviceType = DEVICE_TYPE, ProcessCommand = "CheckMd5", readOnly = true)
     public boolean checkMd5(DeviceCommand command) {
         try {
             String md5 = objectMapper.readTree(command.getTransferData()).get("md5").asText();

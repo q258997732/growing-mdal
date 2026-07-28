@@ -31,7 +31,7 @@ public class CommandRegistry {
                 if (mappings.containsKey(key)) {
                     throw new IllegalStateException("Duplicate device operation: " + key);
                 }
-                mappings.put(key, new HandlerMapping(handler, method, resolveBinding(method)));
+                mappings.put(key, new HandlerMapping(handler, method, resolveBinding(method), op.streaming(), op.readOnly()));
             }
         }
     }

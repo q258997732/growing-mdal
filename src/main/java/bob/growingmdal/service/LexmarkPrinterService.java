@@ -32,7 +32,7 @@ public class LexmarkPrinterService extends AnnotationDrivenHandler implements Li
         lexmarkPrinterAdapter = new LexmarkPrinterAdapter(ip, community, timeout);
     }
 
-    @DeviceOperation(DeviceType = "LexmarkPrinter", ProcessCommand = "getLexmarkErrStatus")
+    @DeviceOperation(DeviceType = "LexmarkPrinter", ProcessCommand = "getLexmarkErrStatus", readOnly = true)
     public String getLexmarkErrStatus() {
         try {
             return lexmarkPrinterAdapter.getPrinterErrStatus();
@@ -42,7 +42,7 @@ public class LexmarkPrinterService extends AnnotationDrivenHandler implements Li
         }
     }
 
-    @DeviceOperation(DeviceType = "LexmarkPrinter", ProcessCommand = "getLexmarkStatus")
+    @DeviceOperation(DeviceType = "LexmarkPrinter", ProcessCommand = "getLexmarkStatus", readOnly = true)
     public String getLexmarkStatus() {
         try {
             return lexmarkPrinterAdapter.getPrinterStatus();
@@ -52,7 +52,7 @@ public class LexmarkPrinterService extends AnnotationDrivenHandler implements Li
         }
     }
 
-    @DeviceOperation(DeviceType = "LexmarkPrinter", ProcessCommand = "getLexmarkPrintingAvailable")
+    @DeviceOperation(DeviceType = "LexmarkPrinter", ProcessCommand = "getLexmarkPrintingAvailable", readOnly = true)
     public String getLexmarkPrintingAvailable() {
         try {
             String status = lexmarkPrinterAdapter.getPrinterStatus();

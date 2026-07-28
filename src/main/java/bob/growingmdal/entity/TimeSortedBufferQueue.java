@@ -8,14 +8,20 @@ import java.util.List;
 import java.util.concurrent.PriorityBlockingQueue;
 
 public class TimeSortedBufferQueue {
+    private static final int MAX_CAPACITY = 300;
+
     private final PriorityBlockingQueue<TimestampedBuffer> queue
             = new PriorityBlockingQueue<>();
 
     /**
-     * 添加数据（自动按时间戳排序）
+     * 添加数据（自动按时间戳排序）。队列满时丢弃最老数据，避免无界增长。
+     * 容量检查为尽力而为，高并发下可能短暂略超上限。
      */
     public void add(ByteBuffer buffer) {
-        queue.put(new TimestampedBuffer(buffer));
+        while (queue.size() >= MAX_CAPACITY) {
+            queue.poll();
+        }
+        queue.offer(new TimestampedBuffer(buffer));
     }
 
     /**

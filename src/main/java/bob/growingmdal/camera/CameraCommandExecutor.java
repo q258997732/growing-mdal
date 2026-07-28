@@ -293,7 +293,7 @@ public class CameraCommandExecutor implements HardwareCommandHandler {
         }
     }
 
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "GetFaceTempl")
+    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "GetFaceTempl", streaming = true)
     public NantianCameraResponse getFaceTempl(DeviceCommand command) {
         if (!cameraStatus.get("getFaceStart").compareAndSet(false, true)) {
             return new NantianCameraResponse(500, "GetFaceTempl already start", "");
@@ -328,7 +328,7 @@ public class CameraCommandExecutor implements HardwareCommandHandler {
         return "StopGetFaceTempl success";
     }
 
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StartGetVideo")
+    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "StartGetVideo", streaming = true)
     public NantianCameraResponse startGetVideo(DeviceCommand command) {
         if (!cameraStatus.get("cameraOpen").get()) {
             return new NantianCameraResponse(500, "Camera not open", "");
@@ -362,7 +362,7 @@ public class CameraCommandExecutor implements HardwareCommandHandler {
         return "Stop Get Video";
     }
 
-    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "FaceDetect")
+    @DeviceOperation(DeviceType = "Camera", ProcessCommand = "FaceDetect", streaming = true)
     public NantianCameraResponse faceDetect(DeviceCommand command) {
         if (!cameraStatus.get("faceDetect").compareAndSet(false, true)) {
             return new NantianCameraResponse(500, "FaceDetect already start", "");

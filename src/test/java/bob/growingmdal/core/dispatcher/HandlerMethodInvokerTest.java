@@ -21,7 +21,7 @@ class HandlerMethodInvokerTest {
     @Test
     void shouldInvokeNoArgMethod() throws NoSuchMethodException {
         Method method = TestHandler.class.getMethod("noArg");
-        HandlerMapping mapping = new HandlerMapping(handler, method, ParameterBinding.NO_ARGS);
+        HandlerMapping mapping = new HandlerMapping(handler, method, ParameterBinding.NO_ARGS, false, false);
         DeviceCommand command = new DeviceCommand();
 
         String result = invoker.invoke(mapping, command);
@@ -32,7 +32,7 @@ class HandlerMethodInvokerTest {
     @Test
     void shouldInvokeDeviceCommandMethod() throws NoSuchMethodException {
         Method method = TestHandler.class.getMethod("withCommand", DeviceCommand.class);
-        HandlerMapping mapping = new HandlerMapping(handler, method, ParameterBinding.DEVICE_COMMAND);
+        HandlerMapping mapping = new HandlerMapping(handler, method, ParameterBinding.DEVICE_COMMAND, false, false);
         DeviceCommand command = new DeviceCommand();
         command.setTransferData("hello");
 
@@ -44,7 +44,7 @@ class HandlerMethodInvokerTest {
     @Test
     void shouldInvokeIntArgMethod() throws NoSuchMethodException {
         Method method = TestHandler.class.getMethod("withInt", int.class);
-        HandlerMapping mapping = new HandlerMapping(handler, method, ParameterBinding.INT_ARG);
+        HandlerMapping mapping = new HandlerMapping(handler, method, ParameterBinding.INT_ARG, false, false);
         DeviceCommand command = new DeviceCommand();
         command.setTransferData("42");
 
@@ -56,7 +56,7 @@ class HandlerMethodInvokerTest {
     @Test
     void shouldInvokeIntIntIntMethod() throws NoSuchMethodException {
         Method method = TestHandler.class.getMethod("withInts", int.class, int.class, int.class);
-        HandlerMapping mapping = new HandlerMapping(handler, method, ParameterBinding.INT_INT_INT);
+        HandlerMapping mapping = new HandlerMapping(handler, method, ParameterBinding.INT_INT_INT, false, false);
         DeviceCommand command = new DeviceCommand();
         command.setTransferData("1@2@3");
 
@@ -68,7 +68,7 @@ class HandlerMethodInvokerTest {
     @Test
     void shouldUnwrapInvocationTargetException() throws NoSuchMethodException {
         Method method = TestHandler.class.getMethod("fail");
-        HandlerMapping mapping = new HandlerMapping(handler, method, ParameterBinding.NO_ARGS);
+        HandlerMapping mapping = new HandlerMapping(handler, method, ParameterBinding.NO_ARGS, false, false);
         DeviceCommand command = new DeviceCommand();
 
         assertThatThrownBy(() -> invoker.invoke(mapping, command))

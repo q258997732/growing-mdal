@@ -86,7 +86,7 @@ public class RpaClientService extends AnnotationDrivenHandler implements Lifecyc
                 agentIpNode.asText(), levelNode.asInt());
     }
 
-    @DeviceOperation(DeviceType = DEVICE_TYPE, ProcessCommand = "GetAgentList")
+    @DeviceOperation(DeviceType = DEVICE_TYPE, ProcessCommand = "GetAgentList", readOnly = true)
     public List<KAgentBean> getAgentList(DeviceCommand command) {
         List<RpaRequestBean> request = new ArrayList<>();
         request.add(new RpaRequestBean("TCoreDM", 4, APP_DM_GUID));
@@ -97,7 +97,7 @@ public class RpaClientService extends AnnotationDrivenHandler implements Lifecyc
         return RpaUtil.result2KAgentList(response);
     }
 
-    @DeviceOperation(DeviceType = DEVICE_TYPE, ProcessCommand = "GetFlowList")
+    @DeviceOperation(DeviceType = DEVICE_TYPE, ProcessCommand = "GetFlowList", readOnly = true)
     public List<KFlowBean> getFlowList(DeviceCommand command) {
         List<RpaRequestBean> request = new ArrayList<>();
         request.add(new RpaRequestBean("TFlowDM", 4, APP_DM_GUID));
@@ -109,7 +109,7 @@ public class RpaClientService extends AnnotationDrivenHandler implements Lifecyc
         return RpaUtil.result2KFlowList(response);
     }
 
-    @DeviceOperation(DeviceType = DEVICE_TYPE, ProcessCommand = "GetAgentThreadList")
+    @DeviceOperation(DeviceType = DEVICE_TYPE, ProcessCommand = "GetAgentThreadList", readOnly = true)
     public Map<String, KAgentThreadBean> getAgentThreadList(DeviceCommand command) {
         List<RpaRequestBean> request = new ArrayList<>();
         request.add(new RpaRequestBean("TUserDM", 4, APP_DM_GUID));
@@ -120,7 +120,7 @@ public class RpaClientService extends AnnotationDrivenHandler implements Lifecyc
         return RpaUtil.result2KAgentThreadList(response);
     }
 
-    @DeviceOperation(DeviceType = DEVICE_TYPE, ProcessCommand = "GetSXFAgentFlowQuery")
+    @DeviceOperation(DeviceType = DEVICE_TYPE, ProcessCommand = "GetSXFAgentFlowQuery", readOnly = true)
     public List<KSxfAgentBean> getSxfAgentFlowQuery(DeviceCommand command) {
         String date = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE);
         List<RpaRequestBean> request = new ArrayList<>();

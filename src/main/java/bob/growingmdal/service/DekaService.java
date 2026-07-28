@@ -115,7 +115,7 @@ public class DekaService extends AnnotationDrivenHandler implements LifecycleMan
      *
      * @return 身份证实体类或错误信息字符串
      */
-    @DeviceOperation(DeviceType = "IDCard", ProcessCommand = "getIDCardInfo")
+    @DeviceOperation(DeviceType = "IDCard", ProcessCommand = "getIDCardInfo", streaming = true)
     public Object getIDCardInfo(DeviceCommand command) {
         if (!isCheckingCard.compareAndSet(false, true)) {
             log.warn("Another ID card check is already in progress");
@@ -330,7 +330,7 @@ public class DekaService extends AnnotationDrivenHandler implements LifecycleMan
      *
      * @return 0 成功，非0失败
      */
-    @DeviceOperation(DeviceType = "IDCard", ProcessCommand = "cardExists")
+    @DeviceOperation(DeviceType = "IDCard", ProcessCommand = "cardExists", readOnly = true)
     public boolean IdCardExists() {
         DekaDeviceContext ctx = new DekaDeviceContext();
         try {
@@ -350,7 +350,7 @@ public class DekaService extends AnnotationDrivenHandler implements LifecycleMan
         return status == 0;
     }
 
-    @DeviceOperation(DeviceType = "IDCard", ProcessCommand = "test")
+    @DeviceOperation(DeviceType = "IDCard", ProcessCommand = "test", readOnly = true)
     public Object test() {
         log.info("Invoke test success");
         return "invoke test success. ";

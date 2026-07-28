@@ -2,14 +2,20 @@
 
 本文件为 Claude Code（claude.ai/code）在操作本仓库代码时提供指引。
 
-## 项目概述
-
-`growing-mdal` 是一个 Spring Boot 3 服务，通过单一的 WebSocket 端点控制连接在 AI 一体机上的外部硬件设备，并对接外部系统。它在统一的命令协议下集成了打印机、身份证读卡器、双目摄像头、Toptron 中控、K-RPA 客户端和文件上传服务，使 AI 中台无需关注厂商特定细节即可操作设备或与外部系统交互。
+## 环境要求
 
 - 语言：Java 17
+- 本地 JDK 路径：`C:\Users\Administrator\.jdks\ms-17.0.19`
 - 构建工具：Gradle Kotlin DSL（`build.gradle.kts`）
 - 框架：Spring Boot 3.5.0
 - 组织/版本：`bob:1.0.3`
+
+构建前请确保 `JAVA_HOME` 指向上述 JDK，例如：
+
+```bash
+export JAVA_HOME="/c/Users/Administrator/.jdks/ms-17.0.19"
+export PATH="$JAVA_HOME/bin:$PATH"
+```
 
 ## 常用命令
 

@@ -3,6 +3,7 @@ package bob.growingmdal.config;
 import bob.growingmdal.handler.HardwareWebSocketHandler;
 import bob.growingmdal.security.HardwareHandshakeInterceptor;
 import bob.growingmdal.service.CommandDispatcherService;
+import bob.growingmdal.service.WebSocketOutboundService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,16 +31,19 @@ public class WebSocketConfig implements WebSocketConfigurer {
     private final WebSocketSessionManager sessionManager;
     private final TaskExecutor taskExecutor;
     private final ObjectMapper objectMapper;
+    private final WebSocketOutboundService outboundService;
 
     @Autowired
     public WebSocketConfig(CommandDispatcherService dispatcherService,
                            WebSocketSessionManager sessionManager,
                            @Qualifier("messageTaskExecutor") TaskExecutor taskExecutor,
-                           ObjectMapper objectMapper) {
+                           ObjectMapper objectMapper,
+                           WebSocketOutboundService outboundService) {
         this.dispatcherService = dispatcherService;
         this.sessionManager = sessionManager;
         this.taskExecutor = taskExecutor;
         this.objectMapper = objectMapper;
+        this.outboundService = outboundService;
     }
 
     @Override
@@ -56,7 +60,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     @Bean
     public HardwareWebSocketHandler hardwareWebSocketHandler() {
-        return new HardwareWebSocketHandler(dispatcherService, sessionManager, taskExecutor, objectMapper);
+        return new HardwareWebSocketHandler(dispatcherService, sessionManager, taskExecutor, objectMapper, outboundService);
     }
 
     @Lazy

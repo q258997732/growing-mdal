@@ -35,6 +35,40 @@ class CommandDispatcherServiceTest {
     }
 
     @Test
+    void shouldReturnStreamingFlag() {
+        DeviceCommand command = new DeviceCommand();
+        command.setDeviceType("Camera");
+        command.setProcessCommand("StartGetVideo");
+        HandlerMapping mapping = mock(HandlerMapping.class);
+        when(mapping.streaming()).thenReturn(true);
+        when(registry.resolve(any())).thenReturn(Optional.of(mapping));
+
+        assertThat(dispatcher.isStreamingCommand(command)).isTrue();
+    }
+
+    @Test
+    void shouldReturnReadOnlyFlag() {
+        DeviceCommand command = new DeviceCommand();
+        command.setDeviceType("IDCard");
+        command.setProcessCommand("cardExists");
+        HandlerMapping mapping = mock(HandlerMapping.class);
+        when(mapping.readOnly()).thenReturn(true);
+        when(registry.resolve(any())).thenReturn(Optional.of(mapping));
+
+        assertThat(dispatcher.isReadOnlyCommand(command)).isTrue();
+    }
+
+    @Test
+    void shouldCheckRegistration() {
+        DeviceCommand command = new DeviceCommand();
+        command.setDeviceType("Printer");
+        command.setProcessCommand("PrintLocalPDF");
+        when(registry.resolve(any())).thenReturn(Optional.of(mock(HandlerMapping.class)));
+
+        assertThat(dispatcher.isRegistered(command)).isTrue();
+    }
+
+    @Test
     void shouldThrowForUnsupportedCommand() {
         DeviceCommand command = new DeviceCommand();
         command.setDeviceType("Unknown");

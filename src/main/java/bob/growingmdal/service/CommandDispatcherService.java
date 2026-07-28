@@ -27,10 +27,25 @@ public class CommandDispatcherService {
         log.debug("Dispatching command: device={}, cmd={}",
                 command.getDeviceType(), command.getProcessCommand());
 
-        HandlerMapping mapping = registry.resolve(command)
+        HandlerMapping mapping = resolveMapping(command);
+        return invoker.invoke(mapping, command);
+    }
+
+    public boolean isStreamingCommand(DeviceCommand command) {
+        return resolveMapping(command).streaming();
+    }
+
+    public boolean isReadOnlyCommand(DeviceCommand command) {
+        return resolveMapping(command).readOnly();
+    }
+
+    public boolean isRegistered(DeviceCommand command) {
+        return registry.resolve(command).isPresent();
+    }
+
+    private HandlerMapping resolveMapping(DeviceCommand command) {
+        return registry.resolve(command)
                 .orElseThrow(() -> new UnsupportedOperationException(
                         "No handler for: " + command.getDeviceType() + ":" + command.getProcessCommand()));
-
-        return invoker.invoke(mapping, command);
     }
 }

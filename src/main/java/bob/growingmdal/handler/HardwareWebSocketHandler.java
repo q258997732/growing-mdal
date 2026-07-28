@@ -5,13 +5,13 @@ import bob.growingmdal.entity.OperationResultEvent;
 import bob.growingmdal.entity.response.CommandResponse;
 import bob.growingmdal.service.CommandDispatcherService;
 import bob.growingmdal.config.WebSocketSessionManager;
+import bob.growingmdal.service.WebSocketOutboundService;
 import bob.growingmdal.validation.CommandValidator;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.task.TaskExecutor;
@@ -21,38 +21,37 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 @Slf4j
 public class HardwareWebSocketHandler extends TextWebSocketHandler {
 
-    @EventListener
-    public void handleOperationResult(OperationResultEvent event) {
-        sendToClient(event.getSession(), event.getResult());
-    }
-
-    private static final CopyOnWriteArrayList<WebSocketSession> sessions = new CopyOnWriteArrayList<>();
     private final ObjectMapper objectMapper;
     private final CommandDispatcherService dispatcher;
     private final WebSocketSessionManager sessionManager;
     private final TaskExecutor taskExecutor;
+    private final WebSocketOutboundService outboundService;
 
-    @Autowired
     public HardwareWebSocketHandler(CommandDispatcherService dispatcher,
                                     WebSocketSessionManager sessionManager,
                                     @Qualifier("messageTaskExecutor") TaskExecutor taskExecutor,
-                                    ObjectMapper objectMapper) {
+                                    ObjectMapper objectMapper,
+                                    WebSocketOutboundService outboundService) {
         this.dispatcher = dispatcher;
         this.sessionManager = sessionManager;
         this.taskExecutor = taskExecutor;
         this.objectMapper = objectMapper;
+        this.outboundService = outboundService;
+    }
+
+    @EventListener
+    public void handleOperationResult(OperationResultEvent event) {
+        outboundService.sendStreamEvent(event.getSession(), event.getResult());
     }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        sessions.add(session);
         sessionManager.registerSession(session.getId(), session);
-        sendToClient(session, "CONNECTED");
+        outboundService.sendCommandResponse(session, "CONNECTED");
         log.info("Session established: {}", session.getId());
     }
 
@@ -111,7 +110,7 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
                 errorMessage
         );
         try {
-            session.sendMessage(new TextMessage(objectMapper.writeValueAsString(response)));
+            outboundService.sendCommandResponse(session, objectMapper.writeValueAsString(response));
         } catch (Exception e) {
             log.error("Failed to send command response", e);
         }
@@ -124,7 +123,7 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
         CommandResponse response = new CommandResponse(
                 "OutPut", null, null, false, null, errorCode, errorMessage);
         try {
-            session.sendMessage(new TextMessage(objectMapper.writeValueAsString(response)));
+            outboundService.sendCommandResponse(session, objectMapper.writeValueAsString(response));
         } catch (Exception e) {
             log.error("Failed to send error message", e);
         }
@@ -141,41 +140,8 @@ public class HardwareWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        sessions.remove(session);
         sessionManager.unregisterSession(session.getId());
         log.info("Session closed: {} with status {}", session.getId(), status);
-    }
-
-    /**
-     * 发送消息给指定客户端
-     *
-     * @param session 当前客户端会话
-     * @param message 要发送的消息内容
-     */
-    public static void sendToClient(WebSocketSession session, String message) {
-        if (session == null) {
-            return;
-        }
-        synchronized (session) {
-            try {
-                if (session.isOpen()) {
-                    session.sendMessage(new TextMessage(message));
-                }
-            } catch (IOException e) {
-                log.error(e.getMessage(), e);
-            }
-        }
-    }
-
-    /**
-     * 广播给所有客户端
-     *
-     * @param message 要发送的消息内容
-     */
-    public static void broadcast(String message) {
-        for (WebSocketSession session : sessions) {
-            sendToClient(session, message);
-        }
     }
 
     private boolean isValidJson(String json) {

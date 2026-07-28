@@ -10,4 +10,6 @@ import java.lang.annotation.Target;
 public @interface DeviceOperation {
     String DeviceType();
     String ProcessCommand();
+    boolean streaming() default false;
+    boolean readOnly() default false;
 }

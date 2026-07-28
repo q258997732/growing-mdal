@@ -2,6 +2,7 @@ package bob.growingmdal.handler;
 
 import bob.growingmdal.config.WebSocketSessionManager;
 import bob.growingmdal.service.CommandDispatcherService;
+import bob.growingmdal.service.WebSocketOutboundService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.core.task.TaskExecutor;
@@ -22,9 +23,11 @@ class HardwareWebSocketHandlerTest {
     private final CommandDispatcherService dispatcher = mock(CommandDispatcherService.class);
     private final WebSocketSessionManager sessionManager = mock(WebSocketSessionManager.class);
     private final TaskExecutor taskExecutor = mock(TaskExecutor.class);
+    private final TaskExecutor outboundTaskExecutor = mock(TaskExecutor.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final WebSocketOutboundService outboundService = new WebSocketOutboundService(outboundTaskExecutor);
     private final HardwareWebSocketHandler handler =
-            new HardwareWebSocketHandler(dispatcher, sessionManager, taskExecutor, objectMapper);
+            new HardwareWebSocketHandler(dispatcher, sessionManager, taskExecutor, objectMapper, outboundService);
 
     @Test
     void shouldSubmitMessageToTaskExecutor() {
